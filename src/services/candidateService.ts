@@ -44,17 +44,51 @@ export const candidateService = {
   },
 
   /**
-   * Subscribe to candidates list with real-time updates
+   * Subscribe to candidates list with real-time updates (filtered by user's applications)
    */
-  subscribeToCandidates(callback: CandidateSnapshotCallback): () => void {
+  subscribeToCandidates(callback: CandidateSnapshotCallback, userId: string | null): () => void {
+    if (!userId) {
+      callback([]);
+      return () => {};
+    }
+
     const q = query(collection(db, 'candidates'), orderBy('createdAt', 'desc'));
 
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      const candidatesData = snapshot.docs.map((doc) => ({
-        id: doc.id,
-        ...doc.data(),
-        createdAt: doc.data().createdAt?.toDate() || new Date(),
-      })) as Candidate[];
+    const unsubscribe = onSnapshot(q, async (snapshot) => {
+      // Get all jobs created by this user
+      const jobsSnapshot = await getDocs(
+        query(collection(db, 'jobs'), where('createdBy', '==', userId))
+      );
+      const userJobIds = new Set(jobsSnapshot.docs.map((doc) => doc.id));
+
+      // If user has no jobs, return empty array
+      if (userJobIds.size === 0) {
+        callback([]);
+        return;
+      }
+
+      // Get all applications for user's jobs
+      const applicationsSnapshot = await getDocs(collection(db, 'applications'));
+      const userApplicationCandidateIds = new Set<string>();
+      
+      applicationsSnapshot.docs.forEach((appDoc) => {
+        const appData = appDoc.data();
+        if (userJobIds.has(appData.jobId)) {
+          const candidateId = appData.candidateId;
+          if (candidateId) {
+            userApplicationCandidateIds.add(candidateId);
+          }
+        }
+      });
+
+      // Filter candidates to only those who applied to user's jobs
+      const candidatesData = snapshot.docs
+        .filter((doc) => userApplicationCandidateIds.has(doc.id))
+        .map((doc) => ({
+          id: doc.id,
+          ...doc.data(),
+          createdAt: doc.data().createdAt?.toDate() || new Date(),
+        })) as Candidate[];
 
       callback(candidatesData);
     });

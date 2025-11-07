@@ -3,19 +3,29 @@ import {
   collection,
   addDoc,
   query,
-  orderBy,
   onSnapshot,
   Timestamp,
   doc,
   getDoc,
   updateDoc,
   getDocs,
+  where,
 } from 'firebase/firestore';
 
 export interface CreateApplicationData {
   jobId: string;
   candidateId: string;
   status?: 'pending' | 'screening' | 'interview' | 'rejected' | 'hired';
+  matchScore?: number;
+  skillsMatch?: {
+    required: string[];
+    found: string[];
+    missing: string[];
+    matchCount: number;
+    totalCount: number;
+  };
+  keywordsFound?: string[];
+  aiSummary?: string;
 }
 
 export interface ApplicationSnapshotCallback {
@@ -27,35 +37,142 @@ export const applicationService = {
    * Create a new application
    */
   async createApplication(data: CreateApplicationData): Promise<string> {
-    const applicationRef = await addDoc(collection(db, 'applications'), {
+    const applicationData: {
+      jobId: string;
+      candidateId: string;
+      status: string;
+      appliedAt: Timestamp;
+      updatedAt: Timestamp;
+      matchScore?: number;
+      skillsMatch?: {
+        required: string[];
+        found: string[];
+        missing: string[];
+        matchCount: number;
+        totalCount: number;
+      };
+      keywordsFound?: string[];
+      aiSummary?: string;
+      analyzedAt?: Timestamp;
+    } = {
       jobId: data.jobId,
       candidateId: data.candidateId,
       status: data.status || 'pending',
       appliedAt: Timestamp.now(),
       updatedAt: Timestamp.now(),
-    });
+    };
+
+    // Add AI analysis data if provided
+    if (data.matchScore !== undefined) {
+      applicationData.matchScore = data.matchScore;
+      applicationData.analyzedAt = Timestamp.now();
+    }
+    if (data.skillsMatch) {
+      applicationData.skillsMatch = data.skillsMatch;
+    }
+    if (data.keywordsFound) {
+      applicationData.keywordsFound = data.keywordsFound;
+    }
+    if (data.aiSummary) {
+      applicationData.aiSummary = data.aiSummary;
+    }
+
+    const applicationRef = await addDoc(collection(db, 'applications'), applicationData);
 
     return applicationRef.id;
   },
 
   /**
-   * Subscribe to applications list with real-time updates
+   * Subscribe to applications list with real-time updates (filtered by user's jobs)
    */
-  subscribeToApplications(callback: ApplicationSnapshotCallback): () => void {
-    const q = query(collection(db, 'applications'), orderBy('appliedAt', 'desc'));
+  subscribeToApplications(callback: ApplicationSnapshotCallback, userId: string | null): () => void {
+    if (!userId) {
+      callback([]);
+      return () => {};
+    }
 
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      const applicationsData = snapshot.docs.map((doc) => ({
-        id: doc.id,
-        ...doc.data(),
-        appliedAt: doc.data().appliedAt?.toDate() || new Date(),
-        updatedAt: doc.data().updatedAt?.toDate() || new Date(),
-      })) as Application[];
+    // First get user's jobs to filter applications
+    const jobsQuery = query(collection(db, 'jobs'), where('createdBy', '==', userId));
+    
+    let unsubscribeJobs: (() => void) | null = null;
+    let unsubscribeApplications: (() => void) | null = null;
 
-      callback(applicationsData);
-    });
+    unsubscribeJobs = onSnapshot(
+      jobsQuery,
+      async (jobsSnapshot) => {
+        const userJobIds = new Set(jobsSnapshot.docs.map((doc) => doc.id));
 
-    return unsubscribe;
+        // If user has no jobs, return empty array
+        if (userJobIds.size === 0) {
+          callback([]);
+          // Clean up applications listener if it exists
+          if (unsubscribeApplications) {
+            unsubscribeApplications();
+            unsubscribeApplications = null;
+          }
+          return;
+        }
+
+        // Now subscribe to applications and filter by user's job IDs
+        // Use getDocs instead of onSnapshot for applications to avoid index issues
+        const applicationsQuery = collection(db, 'applications');
+        
+        // Clean up previous applications listener
+        if (unsubscribeApplications) {
+          unsubscribeApplications();
+        }
+
+        unsubscribeApplications = onSnapshot(
+          applicationsQuery,
+          (snapshot) => {
+            // Filter applications to only those for user's jobs
+            const applicationsData = snapshot.docs
+              .filter((doc) => {
+                const jobId = doc.data().jobId;
+                return jobId && userJobIds.has(jobId);
+              })
+              .map((doc) => {
+                const data = doc.data();
+                return {
+                  id: doc.id,
+                  ...data,
+                  appliedAt: data.appliedAt?.toDate() || new Date(),
+                  updatedAt: data.updatedAt?.toDate() || new Date(),
+                  matchScore: data.matchScore,
+                  skillsMatch: data.skillsMatch,
+                  keywordsFound: data.keywordsFound,
+                  aiSummary: data.aiSummary,
+                  analyzedAt: data.analyzedAt?.toDate() || undefined,
+                } as Application;
+              })
+              // Sort by appliedAt descending (client-side since we removed orderBy)
+              .sort((a, b) => b.appliedAt.getTime() - a.appliedAt.getTime());
+
+            callback(applicationsData);
+          },
+          (error) => {
+            console.error('Error in applications subscription:', error);
+            // If index is missing, show user-friendly error
+            if (error.code === 'failed-precondition') {
+              console.error(
+                'Firestore index required. The applications query may need an index.',
+                'You can create it in the Firebase Console or it will be auto-created if you click the error link.'
+              );
+            }
+            callback([]);
+          }
+        );
+      },
+      (error) => {
+        console.error('Error in jobs subscription:', error);
+        callback([]);
+      }
+    );
+
+    return () => {
+      if (unsubscribeJobs) unsubscribeJobs();
+      if (unsubscribeApplications) unsubscribeApplications();
+    };
   },
 
   /**
@@ -63,12 +180,20 @@ export const applicationService = {
    */
   async getAllApplications(): Promise<Application[]> {
     const snapshot = await getDocs(collection(db, 'applications'));
-    return snapshot.docs.map((doc) => ({
-      id: doc.id,
-      ...doc.data(),
-      appliedAt: doc.data().appliedAt?.toDate() || new Date(),
-      updatedAt: doc.data().updatedAt?.toDate() || new Date(),
-    })) as Application[];
+    return snapshot.docs.map((doc) => {
+      const data = doc.data();
+      return {
+        id: doc.id,
+        ...data,
+        appliedAt: data.appliedAt?.toDate() || new Date(),
+        updatedAt: data.updatedAt?.toDate() || new Date(),
+        matchScore: data.matchScore,
+        skillsMatch: data.skillsMatch,
+        keywordsFound: data.keywordsFound,
+        aiSummary: data.aiSummary,
+        analyzedAt: data.analyzedAt?.toDate() || undefined,
+      } as Application;
+    });
   },
 
   /**

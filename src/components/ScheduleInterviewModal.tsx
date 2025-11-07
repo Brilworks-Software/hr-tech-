@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { X, Calendar, Mail, Clock, Link as LinkIcon } from 'lucide-react';
 import { interviewService } from '../services/interviewService';
+import { useToast } from '../contexts/ToastContext';
 
 interface ScheduleInterviewModalProps {
   applicationId: string;
@@ -26,18 +27,19 @@ export default function ScheduleInterviewModal({
     duration: '30',
     instructions: '',
   });
+  const { showToast } = useToast();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
     // Validate required fields
     if (!applicationId || !candidateEmail || !candidateName || !jobTitle) {
-      alert('Missing required information. Please schedule from the Applications page.');
+      showToast('Missing required information. Please schedule from the Applications page.', 'warning');
       return;
     }
 
     if (!formData.date || !formData.time) {
-      alert('Please select both date and time for the interview.');
+      showToast('Please select both date and time for the interview.', 'warning');
       return;
     }
 
@@ -48,7 +50,7 @@ export default function ScheduleInterviewModal({
       
       // Validate date is in the future
       if (scheduledDateTime <= new Date()) {
-        alert('Please select a future date and time for the interview.');
+        showToast('Please select a future date and time for the interview.', 'warning');
         setLoading(false);
         return;
       }
@@ -65,23 +67,20 @@ export default function ScheduleInterviewModal({
 
       const interviewLink = `${window.location.origin}/interview/${interviewId}`;
       
-      // Check if email might have failed (Functions not deployed)
-      const emailMayHaveFailed = !navigator.onLine || 
-        typeof window === 'undefined' || 
-        !window.location.hostname.includes('firebase');
+      // Show simplified success message
+      showToast('Interview is scheduled', 'success');
       
-      if (emailMayHaveFailed) {
-        alert(`Interview scheduled successfully!\n\nInterview Link: ${interviewLink}\n\nNote: Email may not have been sent. Please share the link manually with the candidate.`);
-      } else {
-        alert(`Interview scheduled successfully! Email sent to ${candidateEmail}\n\nInterview Link: ${interviewLink}`);
-      }
+      // Copy link to clipboard silently
+      navigator.clipboard.writeText(interviewLink).catch(() => {
+        // Ignore clipboard errors
+      });
       
       setLoading(false);
       onSuccess();
     } catch (error) {
       setLoading(false);
       const err = error as Error;
-      alert('Error scheduling interview: ' + err.message);
+      showToast('Error scheduling interview: ' + err.message, 'error');
     }
   };
 
@@ -183,7 +182,7 @@ export default function ScheduleInterviewModal({
             />
           </div>
 
-          <div className="bg-gradient-to-r from-cyan-50 to-blue-50 border border-cyan-200 rounded-lg p-4">
+          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
             <div className="flex items-start space-x-3">
               <LinkIcon className="w-5 h-5 text-cyan-600 mt-0.5" />
               <div className="flex-1">
@@ -201,7 +200,7 @@ export default function ScheduleInterviewModal({
               <li>• Real-time emotion detection and facial expression analysis</li>
               <li>• Speech pattern and sentiment analysis</li>
               <li>• Behavioral monitoring and integrity checks</li>
-              <li>• Automatic interview recording and transcription</li>
+              <li>• Automatic interview transcription</li>
             </ul>
           </div>
 
@@ -216,7 +215,7 @@ export default function ScheduleInterviewModal({
             <button
               type="submit"
               disabled={loading}
-              className="px-5 py-2.5 bg-gradient-to-r from-blue-600 to-cyan-500 text-white rounded-lg hover:shadow-lg hover:shadow-blue-500/30 transition-all disabled:opacity-50"
+              className="px-5 py-2.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-all disabled:opacity-50"
             >
               {loading ? 'Scheduling...' : 'Schedule & Send Email'}
             </button>

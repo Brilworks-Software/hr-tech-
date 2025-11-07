@@ -8,7 +8,9 @@ import {
   Timestamp,
   doc,
   getDoc,
+  getDocs,
   updateDoc,
+  where,
 } from 'firebase/firestore';
 import { getFunctions, httpsCallable } from 'firebase/functions';
 
@@ -43,6 +45,7 @@ export const interviewService = {
       transcript: null,
       questions: [],
       status: 'scheduled',
+      hrJoined: false, // HR hasn't joined yet
       duration: data.duration || 30,
       instructions: data.instructions || '',
       createdAt: Timestamp.now(),
@@ -101,25 +104,76 @@ export const interviewService = {
   },
 
   /**
-   * Subscribe to interviews list with real-time updates
+   * Subscribe to interviews list with real-time updates (filtered by user's applications)
    */
-  subscribeToInterviews(callback: InterviewSnapshotCallback): () => void {
+  subscribeToInterviews(callback: InterviewSnapshotCallback, userId: string | null): () => void {
+    if (!userId) {
+      callback([]);
+      return () => {};
+    }
+
     const q = query(collection(db, 'interviews'), orderBy('scheduledAt', 'desc'));
 
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      const interviewsData = snapshot.docs.map((doc) => ({
-        id: doc.id,
-        ...doc.data(),
-        scheduledAt: doc.data().scheduledAt?.toDate() || new Date(),
-        startedAt: doc.data().startedAt?.toDate() || null,
-        completedAt: doc.data().completedAt?.toDate() || null,
-        createdAt: doc.data().createdAt?.toDate() || new Date(),
-      })) as Interview[];
+    const unsubscribe = onSnapshot(q, async (snapshot) => {
+      // Get all jobs created by this user
+      const jobsSnapshot = await getDocs(
+        query(collection(db, 'jobs'), where('createdBy', '==', userId))
+      );
+      const userJobIds = new Set(jobsSnapshot.docs.map((doc) => doc.id));
+
+      // If user has no jobs, return empty array
+      if (userJobIds.size === 0) {
+        callback([]);
+        return;
+      }
+
+      // Get all applications for user's jobs
+      const applicationsSnapshot = await getDocs(collection(db, 'applications'));
+      const userApplicationIds = new Set<string>();
+      
+      applicationsSnapshot.docs.forEach((appDoc) => {
+        const appData = appDoc.data();
+        if (userJobIds.has(appData.jobId)) {
+          userApplicationIds.add(appDoc.id);
+        }
+      });
+
+      // Filter interviews to only those for user's applications
+      const interviewsData = snapshot.docs
+        .filter((doc) => {
+          const applicationId = doc.data().applicationId;
+          return applicationId && userApplicationIds.has(applicationId);
+        })
+        .map((doc) => ({
+          id: doc.id,
+          ...doc.data(),
+          scheduledAt: doc.data().scheduledAt?.toDate() || new Date(),
+          startedAt: doc.data().startedAt?.toDate() || null,
+          completedAt: doc.data().completedAt?.toDate() || null,
+          hrJoined: doc.data().hrJoined || false,
+          createdAt: doc.data().createdAt?.toDate() || new Date(),
+        })) as Interview[];
 
       callback(interviewsData);
     });
 
     return unsubscribe;
+  },
+
+  /**
+   * Get all interviews (one-time fetch)
+   */
+  async getAllInterviews(): Promise<Interview[]> {
+    const snapshot = await getDocs(collection(db, 'interviews'));
+    return snapshot.docs.map((doc) => ({
+      id: doc.id,
+      ...doc.data(),
+      scheduledAt: doc.data().scheduledAt?.toDate() || new Date(),
+      startedAt: doc.data().startedAt?.toDate() || null,
+      completedAt: doc.data().completedAt?.toDate() || null,
+      hrJoined: doc.data().hrJoined || false,
+      createdAt: doc.data().createdAt?.toDate() || new Date(),
+    })) as Interview[];
   },
 
   /**
@@ -139,8 +193,19 @@ export const interviewService = {
       scheduledAt: data.scheduledAt?.toDate() || new Date(),
       startedAt: data.startedAt?.toDate() || null,
       completedAt: data.completedAt?.toDate() || null,
+      hrJoined: data.hrJoined || false,
+      transcript: data.transcript || null,
       createdAt: data.createdAt?.toDate() || new Date(),
     } as Interview;
+  },
+
+  /**
+   * Mark HR as joined
+   */
+  async markHRJoined(interviewId: string): Promise<void> {
+    await updateDoc(doc(db, 'interviews', interviewId), {
+      hrJoined: true,
+    });
   },
 
   /**

@@ -52,6 +52,17 @@ export interface Application {
   status: 'pending' | 'screening' | 'interview' | 'rejected' | 'hired';
   appliedAt: Date;
   updatedAt: Date;
+  matchScore?: number; // AI match percentage (0-100)
+  skillsMatch?: {
+    required: string[];
+    found: string[];
+    missing: string[];
+    matchCount: number;
+    totalCount: number;
+  };
+  keywordsFound?: string[];
+  aiSummary?: string;
+  analyzedAt?: Date;
 }
 
 export interface ResumeAnalysis {
@@ -75,6 +86,7 @@ export interface Interview {
   transcript: string | null;
   questions: Array<Record<string, unknown>>;
   status: 'scheduled' | 'in_progress' | 'completed' | 'cancelled';
+  hrJoined: boolean; // Track if HR has joined the interview
   createdAt: Date;
 }
 

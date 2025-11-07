@@ -1,8 +1,14 @@
-import { useState, useEffect } from 'react';
-import { BarChart3, TrendingUp, Users, Briefcase, Award, Brain, Eye, AlertTriangle } from 'lucide-react';
+import { useState, useEffect, useRef } from 'react';
+import { BarChart3, TrendingUp, Users, Briefcase, Award, Brain, Eye, AlertTriangle, ChevronDown, Filter } from 'lucide-react';
+import { useAuth } from '../contexts/AuthContext';
 import { analyticsService } from '../services/analyticsService';
+import { jobService } from '../services/jobService';
+import { applicationService } from '../services/applicationService';
+import { interviewService } from '../services/interviewService';
+import { Job, Application, Interview } from '../lib/firebase';
 
 export default function AnalyticsView() {
+  const { currentUser } = useAuth();
   const [stats, setStats] = useState({
     totalJobs: 0,
     activeJobs: 0,
@@ -11,15 +17,66 @@ export default function AnalyticsView() {
     totalInterviews: 0,
   });
   const [loading, setLoading] = useState(true);
+  const [jobs, setJobs] = useState<Job[]>([]);
+  const [applications, setApplications] = useState<Application[]>([]);
+  const [interviews, setInterviews] = useState<Interview[]>([]);
+  const [jobFilter, setJobFilter] = useState('all');
+  const [showJobDropdown, setShowJobDropdown] = useState(false);
+  const jobDropdownRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    fetchAnalytics();
+    if (currentUser) {
+      fetchAnalytics();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentUser]);
+
+  useEffect(() => {
+    if (!currentUser) return;
+
+    // Fetch jobs
+    const unsubscribeJobs = jobService.subscribeToJobs((jobsData) => {
+      setJobs(jobsData);
+    }, currentUser.uid);
+
+    // Fetch applications
+    const unsubscribeApps = applicationService.subscribeToApplications((appsData) => {
+      setApplications(appsData);
+    }, currentUser.uid);
+
+    // Fetch interviews
+    const unsubscribeInterviews = interviewService.subscribeToInterviews((interviewsData) => {
+      setInterviews(interviewsData);
+    }, currentUser.uid);
+
+    return () => {
+      unsubscribeJobs();
+      unsubscribeApps();
+      unsubscribeInterviews();
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentUser]);
+
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (jobDropdownRef.current && !jobDropdownRef.current.contains(event.target as Node)) {
+        setShowJobDropdown(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
   }, []);
 
   const fetchAnalytics = async () => {
+    if (!currentUser) return;
+
     setLoading(true);
     try {
-      const analyticsData = await analyticsService.getAnalyticsStats();
+      const analyticsData = await analyticsService.getAnalyticsStats(currentUser.uid);
       setStats(analyticsData);
     } catch (error) {
       console.error('Error fetching analytics:', error);
@@ -28,34 +85,84 @@ export default function AnalyticsView() {
     }
   };
 
+
+  // Calculate filtered stats
+  const getFilteredStats = () => {
+    let filteredApplications = applications;
+    let filteredInterviews = interviews;
+
+    // Filter by job if selected
+    if (jobFilter !== 'all') {
+      filteredApplications = applications.filter(app => app.jobId === jobFilter);
+      // Get application IDs for the filtered applications
+      const filteredAppIds = new Set(filteredApplications.map(app => app.id));
+      filteredInterviews = interviews.filter(interview => filteredAppIds.has(interview.applicationId));
+    }
+
+    // Get unique candidate IDs from filtered applications
+    const candidateIds = new Set<string>();
+    filteredApplications.forEach((app) => {
+      if (app.candidateId) {
+        candidateIds.add(app.candidateId);
+      }
+    });
+
+    const filteredJobs = jobFilter === 'all' ? jobs : jobs.filter(job => job.id === jobFilter);
+    const activeFilteredJobs = filteredJobs.filter(job => job.status === 'active');
+
+    return {
+      totalJobs: filteredJobs.length,
+      activeJobs: activeFilteredJobs.length,
+      totalApplications: filteredApplications.length,
+      totalCandidates: candidateIds.size,
+      totalInterviews: filteredInterviews.length,
+    };
+  };
+
+  const filteredStats = getFilteredStats();
+
+  const jobOptions = [
+    { value: 'all', label: 'All Jobs' },
+    ...jobs.map(job => ({ 
+      value: job.id, 
+      label: `${job.title} (${job.status})` 
+    })),
+  ];
+
+  const getJobLabel = (jobId: string) => {
+    if (jobId === 'all') return 'All Jobs';
+    const job = jobs.find(j => j.id === jobId);
+    return job ? `${job.title} (${job.status})` : 'All Jobs';
+  };
+
   const statCards = [
     {
       title: 'Total Jobs',
-      value: stats.totalJobs,
-      subtitle: `${stats.activeJobs} active`,
+      value: filteredStats.totalJobs,
+      subtitle: `${filteredStats.activeJobs} active`,
       icon: Briefcase,
-      color: 'from-blue-500 to-cyan-400',
+      color: 'bg-blue-500',
     },
     {
       title: 'Applications',
-      value: stats.totalApplications,
+      value: filteredStats.totalApplications,
       subtitle: 'Total received',
       icon: BarChart3,
-      color: 'from-purple-500 to-pink-400',
+      color: 'bg-purple-500',
     },
     {
       title: 'Candidates',
-      value: stats.totalCandidates,
+      value: filteredStats.totalCandidates,
       subtitle: 'In database',
       icon: Users,
-      color: 'from-green-500 to-emerald-400',
+      color: 'bg-green-500',
     },
     {
       title: 'Interviews',
-      value: stats.totalInterviews,
+      value: filteredStats.totalInterviews,
       subtitle: 'Conducted',
       icon: Eye,
-      color: 'from-orange-500 to-yellow-400',
+      color: 'bg-orange-500',
     },
   ];
 
@@ -92,11 +199,47 @@ export default function AnalyticsView() {
 
   return (
     <div className="space-y-6">
-      <div className="bg-gradient-to-br from-blue-600 via-cyan-500 to-teal-400 rounded-2xl p-8 text-white">
+      <div className="bg-blue-600 rounded-2xl p-8 text-white">
         <h2 className="text-3xl font-bold mb-2">Recruitment Analytics Dashboard</h2>
         <p className="text-blue-100 text-lg">
           AI-powered insights to optimize your hiring process and make data-driven decisions
         </p>
+      </div>
+
+      {/* Filters */}
+      <div className="flex items-center space-x-4">
+        <div className="relative" ref={jobDropdownRef}>
+          <button
+            type="button"
+            onClick={() => setShowJobDropdown(!showJobDropdown)}
+            className="flex items-center space-x-2 px-4 py-2.5 border border-slate-300 rounded-lg hover:bg-slate-50 focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors bg-white"
+          >
+            <Briefcase className="w-4 h-4 text-slate-600" />
+            <span className="text-slate-700 font-medium">{getJobLabel(jobFilter)}</span>
+            <ChevronDown className={`w-4 h-4 text-slate-600 transition-transform ${showJobDropdown ? 'rotate-180' : ''}`} />
+          </button>
+          {showJobDropdown && (
+            <div className="absolute top-full left-0 mt-1 w-56 bg-white border border-slate-200 rounded-lg shadow-lg z-50 overflow-hidden max-h-64 overflow-y-auto">
+              {jobOptions.map((option) => (
+                <button
+                  key={option.value}
+                  type="button"
+                  onClick={() => {
+                    setJobFilter(option.value);
+                    setShowJobDropdown(false);
+                  }}
+                  className={`w-full text-left px-4 py-2.5 text-sm hover:bg-blue-50 transition-colors ${
+                    jobFilter === option.value
+                      ? 'bg-blue-50 text-blue-700 font-medium'
+                      : 'text-slate-700'
+                  }`}
+                >
+                  {option.label}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
       </div>
 
       {loading ? (
@@ -117,7 +260,7 @@ export default function AnalyticsView() {
                   >
                     <div className="flex items-start justify-between mb-4">
                       <div
-                        className={`w-12 h-12 bg-gradient-to-br ${stat.color} rounded-lg flex items-center justify-center`}
+                        className={`w-12 h-12 ${stat.color} rounded-lg flex items-center justify-center`}
                       >
                         <Icon className="w-6 h-6 text-white" />
                       </div>
@@ -206,25 +349,25 @@ export default function AnalyticsView() {
             <div className="bg-white rounded-xl border border-slate-200 p-6">
               <h3 className="text-lg font-bold text-slate-900 mb-4">Key Insights</h3>
               <div className="space-y-4">
-                {stats.totalApplications > 0 && (
-                  <div className="bg-gradient-to-r from-blue-50 to-cyan-50 p-4 rounded-lg">
+                {filteredStats.totalApplications > 0 && (
+                  <div className="bg-blue-50 p-4 rounded-lg">
                     <p className="text-sm font-medium text-slate-900 mb-1">Application Pipeline</p>
                     <p className="text-sm text-slate-600">
-                      {stats.totalApplications} applications being processed through the system
+                      {filteredStats.totalApplications} applications being processed through the system
                     </p>
                   </div>
                 )}
-                {stats.totalInterviews > 0 && (
-                  <div className="bg-gradient-to-r from-green-50 to-emerald-50 p-4 rounded-lg">
+                {filteredStats.totalInterviews > 0 && (
+                  <div className="bg-green-50 p-4 rounded-lg">
                     <p className="text-sm font-medium text-slate-900 mb-1">Interview Performance</p>
-                    <p className="text-sm text-slate-600">{stats.totalInterviews} interviews conducted</p>
+                    <p className="text-sm text-slate-600">{filteredStats.totalInterviews} interviews conducted</p>
                   </div>
                 )}
-                {stats.activeJobs > 0 && (
-                  <div className="bg-gradient-to-r from-purple-50 to-pink-50 p-4 rounded-lg">
+                {filteredStats.activeJobs > 0 && (
+                  <div className="bg-purple-50 p-4 rounded-lg">
                     <p className="text-sm font-medium text-slate-900 mb-1">Active Recruiting</p>
                     <p className="text-sm text-slate-600">
-                      {stats.activeJobs} job{stats.activeJobs !== 1 ? 's' : ''} currently accepting applications
+                      {filteredStats.activeJobs} job{filteredStats.activeJobs !== 1 ? 's' : ''} currently accepting applications
                     </p>
                   </div>
                 )}

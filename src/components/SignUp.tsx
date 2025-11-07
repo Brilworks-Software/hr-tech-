@@ -1,22 +1,36 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
-import { Briefcase, Mail, Lock, AlertCircle, CheckCircle } from 'lucide-react';
+import { Mail, Lock, AlertCircle, CheckCircle, Eye, EyeOff } from 'lucide-react';
+import logoImage from '../assets/logo.png';
 
 export default function SignUp() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const { signup, currentUser } = useAuth();
   const navigate = useNavigate();
 
   useEffect(() => {
-    if (currentUser) {
-      navigate('/');
-    }
-  }, [currentUser, navigate]);
+    const checkAndNavigate = async () => {
+      if (currentUser) {
+        // If user is already logged in and visits signup page, check profile status
+        const { userService } = await import('../services/userService');
+        const hasProfile = await userService.hasProfileSetup(currentUser.uid);
+        if (hasProfile) {
+          navigate('/dashboard');
+        } else {
+          navigate('/setup-profile');
+        }
+      }
+    };
+    checkAndNavigate();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentUser]);
 
   const validatePassword = (password: string) => {
     if (password.length < 6) {
@@ -48,19 +62,28 @@ export default function SignUp() {
     try {
       setLoading(true);
       await signup(email, password);
-      navigate('/');
+      // Redirect to profile setup after successful signup
+      navigate('/setup-profile');
     } catch (err) {
-      let errorMessage = 'Failed to create an account.';
       const error = err as { code?: string; message?: string };
+      let errorMessage = 'Failed to create an account. Please try again.';
+      
+      // Convert Firebase error codes to human-readable messages
       if (error.code === 'auth/email-already-in-use') {
-        errorMessage = 'This email is already registered. Please sign in instead.';
+        errorMessage = 'This email is already registered. Please sign in instead or use a different email.';
       } else if (error.code === 'auth/invalid-email') {
-        errorMessage = 'Invalid email address.';
+        errorMessage = 'Invalid email address. Please enter a valid email.';
       } else if (error.code === 'auth/weak-password') {
-        errorMessage = 'Password is too weak.';
-      } else {
-        errorMessage = error.message || errorMessage;
+        errorMessage = 'Password is too weak. Please use a stronger password with at least 6 characters.';
+      } else if (error.code === 'auth/operation-not-allowed') {
+        errorMessage = 'Account creation is currently disabled. Please contact support.';
+      } else if (error.code === 'auth/network-request-failed') {
+        errorMessage = 'Network error. Please check your internet connection and try again.';
+      } else if (error.message) {
+        // If there's a message but no code, use it as fallback
+        errorMessage = error.message;
       }
+      
       setError(errorMessage);
     } finally {
       setLoading(false);
@@ -68,16 +91,18 @@ export default function SignUp() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-slate-900 flex items-center justify-center p-4">
+    <div className="min-h-screen bg-slate-900 flex items-center justify-center p-4">
       <div className="max-w-md w-full bg-white rounded-2xl shadow-2xl overflow-hidden">
-        <div className="bg-gradient-to-r from-blue-600 to-cyan-500 p-8 text-white">
+        <div className="bg-blue-600 p-8 text-white">
           <div className="flex items-center justify-center mb-4">
-            <div className="w-16 h-16 bg-white/20 rounded-full flex items-center justify-center">
-              <Briefcase className="w-8 h-8" />
-            </div>
+            <img 
+              src={logoImage} 
+              alt="HR-tech Logo" 
+              className="h-16 w-auto"
+            />
           </div>
           <h1 className="text-3xl font-bold text-center mb-2">Create Account</h1>
-          <p className="text-center text-blue-100">Join HireTech AI Platform</p>
+          <p className="text-center text-blue-100">Join HR-tech Platform</p>
         </div>
 
         <div className="p-8">
@@ -115,13 +140,25 @@ export default function SignUp() {
                 <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400 w-5 h-5" />
                 <input
                   id="password"
-                  type="password"
+                  type={showPassword ? 'text' : 'password'}
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  className="w-full pl-10 pr-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
+                  className="w-full pl-10 pr-12 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
                   placeholder="Minimum 6 characters"
                   required
                 />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-3 top-1/2 transform -translate-y-1/2 text-slate-400 hover:text-slate-600 transition-colors"
+                  tabIndex={-1}
+                >
+                  {showPassword ? (
+                    <EyeOff className="w-5 h-5" />
+                  ) : (
+                    <Eye className="w-5 h-5" />
+                  )}
+                </button>
               </div>
               {password && (
                 <div className="mt-2 flex items-center space-x-2 text-xs">
@@ -145,13 +182,25 @@ export default function SignUp() {
                 <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400 w-5 h-5" />
                 <input
                   id="confirmPassword"
-                  type="password"
+                  type={showConfirmPassword ? 'text' : 'password'}
                   value={confirmPassword}
                   onChange={(e) => setConfirmPassword(e.target.value)}
-                  className="w-full pl-10 pr-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
+                  className="w-full pl-10 pr-12 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
                   placeholder="Confirm your password"
                   required
                 />
+                <button
+                  type="button"
+                  onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                  className="absolute right-3 top-1/2 transform -translate-y-1/2 text-slate-400 hover:text-slate-600 transition-colors"
+                  tabIndex={-1}
+                >
+                  {showConfirmPassword ? (
+                    <EyeOff className="w-5 h-5" />
+                  ) : (
+                    <Eye className="w-5 h-5" />
+                  )}
+                </button>
               </div>
               {confirmPassword && password && (
                 <div className="mt-2 flex items-center space-x-2 text-xs">
@@ -173,7 +222,7 @@ export default function SignUp() {
             <button
               type="submit"
               disabled={loading}
-              className="w-full py-3 bg-gradient-to-r from-blue-600 to-cyan-500 text-white text-lg font-bold rounded-lg hover:shadow-xl hover:shadow-blue-500/30 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+              className="w-full py-3 bg-blue-600 text-white text-lg font-bold rounded-lg hover:bg-blue-700 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {loading ? 'Creating Account...' : 'Sign Up'}
             </button>

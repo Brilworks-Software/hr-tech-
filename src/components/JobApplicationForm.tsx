@@ -13,12 +13,15 @@ import {
   Clock,
   DollarSign,
   ArrowLeft,
+  X,
 } from 'lucide-react';
 import { jobService } from '../services/jobService';
 import { candidateService } from '../services/candidateService';
 import { applicationService } from '../services/applicationService';
 import { storageService } from '../services/storageService';
+import { aiAnalysisService } from '../services/aiAnalysisService';
 import { Job } from '../lib/firebase';
+import * as pdfjsLib from 'pdfjs-dist';
 
 export default function JobApplicationForm() {
   const { jobId } = useParams<{ jobId: string }>();
@@ -29,12 +32,13 @@ export default function JobApplicationForm() {
   const [error, setError] = useState('');
   const [success, setSuccess] = useState(false);
   const [resumeFile, setResumeFile] = useState<File | null>(null);
+  const [resumePreviewUrl, setResumePreviewUrl] = useState<string | null>(null);
+  const [extractingText, setExtractingText] = useState(false);
 
   const [formData, setFormData] = useState({
     name: '',
     email: '',
     phone: '',
-    resumeText: '',
   });
 
   const fetchJob = useCallback(async () => {
@@ -62,6 +66,15 @@ export default function JobApplicationForm() {
     }
   }, [jobId, fetchJob]);
 
+  // Cleanup preview URL on unmount
+  useEffect(() => {
+    return () => {
+      if (resumePreviewUrl) {
+        URL.revokeObjectURL(resumePreviewUrl);
+      }
+    };
+  }, [resumePreviewUrl]);
+
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
       const file = e.target.files[0];
@@ -73,15 +86,87 @@ export default function JobApplicationForm() {
         setError('Please upload a PDF or Word document');
         return;
       }
+      
+      // Revoke old preview URL if exists
+      if (resumePreviewUrl) {
+        URL.revokeObjectURL(resumePreviewUrl);
+      }
+      
       setResumeFile(file);
       setError('');
+      
+      // Create preview URL for PDF files
+      if (file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf')) {
+        const url = URL.createObjectURL(file);
+        setResumePreviewUrl(url);
+      } else {
+        setResumePreviewUrl(null);
+      }
+    }
+  };
+
+  const handleRemoveFile = () => {
+    if (resumePreviewUrl) {
+      URL.revokeObjectURL(resumePreviewUrl);
+    }
+    setResumeFile(null);
+    setResumePreviewUrl(null);
+    // Reset the file input
+    const fileInput = document.getElementById('resume') as HTMLInputElement;
+    if (fileInput) {
+      fileInput.value = '';
     }
   };
 
   const extractResumeText = async (): Promise<string> => {
-    // For now, return empty string - in production, you'd parse PDF/DOC files
-    // You could use libraries like pdf-parse or mammoth for text extraction
-    return '';
+    if (!resumeFile) {
+      return '';
+    }
+
+    try {
+      // Only extract text from PDF files
+      if (resumeFile.type === 'application/pdf' || resumeFile.name.toLowerCase().endsWith('.pdf')) {
+        // Configure PDF.js worker - use worker from public folder
+        if (!pdfjsLib.GlobalWorkerOptions.workerSrc) {
+          // Use the worker file from public folder (copied to public/pdf.worker.mjs)
+          pdfjsLib.GlobalWorkerOptions.workerSrc = '/pdf.worker.mjs';
+        }
+        
+        // Read file as array buffer
+        const arrayBuffer = await resumeFile.arrayBuffer();
+        
+        // Load PDF document
+        const loadingTask = pdfjsLib.getDocument({ data: arrayBuffer });
+        const pdf = await loadingTask.promise;
+        
+        // Extract text from all pages
+        let fullText = '';
+        for (let pageNum = 1; pageNum <= pdf.numPages; pageNum++) {
+          const page = await pdf.getPage(pageNum);
+          const textContent = await page.getTextContent();
+          
+          // Combine all text items from the page
+          const pageText = textContent.items
+            .map((item) => {
+              if ('str' in item && typeof item === 'object') {
+                return (item as { str: string }).str;
+              }
+              return '';
+            })
+            .join(' ');
+          
+          fullText += pageText + '\n';
+        }
+        
+        return fullText.trim();
+      }
+      
+      // For Word documents, we can't extract text client-side easily
+      return '';
+    } catch (error) {
+      console.error('Error extracting text from resume:', error);
+      return '';
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -105,15 +190,28 @@ export default function JobApplicationForm() {
 
       // Upload resume if provided
       let resumeUrl: string | null = null;
-      let resumeText = formData.resumeText;
+      let resumeText = '';
 
       if (resumeFile) {
+        // Extract text from resume first (before upload)
+        setExtractingText(true);
+        try {
+          console.log('Extracting text from resume...');
+          resumeText = await extractResumeText();
+          console.log('Resume text extracted:', resumeText ? `${resumeText.substring(0, 100)}...` : 'No text extracted');
+          
+          if (!resumeText || resumeText.trim().length === 0) {
+            console.warn('No text extracted from resume. AI analysis may be limited.');
+          }
+        } catch (extractError) {
+          console.error('Error extracting resume text:', extractError);
+        } finally {
+          setExtractingText(false);
+        }
+        
         // Create a temporary candidate ID for storage path
         const tempCandidateId = `temp_${Date.now()}`;
         resumeUrl = await storageService.uploadResume(resumeFile, tempCandidateId);
-        
-        // Extract text from resume if possible
-        resumeText = await extractResumeText();
       }
 
       // Create or get candidate
@@ -123,13 +221,13 @@ export default function JobApplicationForm() {
         const existingCandidate = await candidateService.getCandidateByEmail(formData.email);
         if (existingCandidate) {
           candidateId = existingCandidate.id;
-          // Update candidate with new resume if provided
-          if (resumeUrl) {
+          // Update candidate with new resume and extracted text if provided
+          if (resumeUrl || resumeText) {
             await candidateService.updateCandidate(candidateId, {
               name: formData.name,
               phone: formData.phone,
-              resumeUrl,
-              resumeText: resumeText || formData.resumeText,
+              resumeUrl: resumeUrl || existingCandidate.resumeUrl,
+              resumeText: resumeText || existingCandidate.resumeText,
             });
           }
         } else {
@@ -139,7 +237,7 @@ export default function JobApplicationForm() {
             name: formData.name,
             phone: formData.phone,
             resumeUrl,
-            resumeText: resumeText || formData.resumeText,
+            resumeText: resumeText,
           });
         }
       } catch {
@@ -149,21 +247,59 @@ export default function JobApplicationForm() {
           name: formData.name,
           phone: formData.phone,
           resumeUrl,
-          resumeText: resumeText || formData.resumeText,
+          resumeText: resumeText,
         });
       }
 
-      // Create application
-      await applicationService.createApplication({
+      // Get candidate for AI analysis
+      const candidate = await candidateService.getCandidateById(candidateId);
+      
+      // Perform AI analysis if resume text is available
+      const applicationData: {
+        jobId: string;
+        candidateId: string;
+        status: 'pending';
+        matchScore?: number;
+        skillsMatch?: {
+          required: string[];
+          found: string[];
+          missing: string[];
+          matchCount: number;
+          totalCount: number;
+        };
+        keywordsFound?: string[];
+        aiSummary?: string;
+      } = {
         jobId,
         candidateId,
         status: 'pending',
-      });
+      };
+
+      // Perform AI analysis if candidate and resume text are available
+      let finalApplicationData = { ...applicationData };
+      if (candidate && candidate.resumeText && job) {
+        try {
+          const analysisResult = await aiAnalysisService.analyzeResumeMatch(candidate, job);
+          finalApplicationData = {
+            ...applicationData,
+            matchScore: analysisResult.matchScore,
+            skillsMatch: analysisResult.skillsMatch,
+            keywordsFound: analysisResult.keywordsFound,
+            aiSummary: analysisResult.summary,
+          };
+        } catch (analysisError) {
+          console.error('Error performing AI analysis:', analysisError);
+          // Continue without analysis if it fails
+        }
+      }
+
+      // Create application with AI analysis
+      await applicationService.createApplication(finalApplicationData);
+
 
       setSuccess(true);
-      setTimeout(() => {
-        navigate('/');
-      }, 3000);
+      // Don't navigate away - candidates may not be logged in
+      // They can close the window after seeing the success message
     } catch (err) {
       const error = err as Error;
       setError(error.message || 'Failed to submit application. Please try again.');
@@ -174,7 +310,7 @@ export default function JobApplicationForm() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-slate-900 flex items-center justify-center">
+      <div className="min-h-screen bg-slate-900 flex items-center justify-center">
         <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500"></div>
       </div>
     );
@@ -182,14 +318,14 @@ export default function JobApplicationForm() {
 
   if (error && !job) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-slate-900 flex items-center justify-center p-4">
+      <div className="min-h-screen bg-slate-900 flex items-center justify-center p-4">
         <div className="max-w-md w-full bg-white rounded-2xl shadow-2xl p-8 text-center">
           <AlertCircle className="w-16 h-16 text-red-600 mx-auto mb-4" />
           <h2 className="text-2xl font-bold text-slate-900 mb-2">Job Not Found</h2>
           <p className="text-slate-600 mb-6">{error}</p>
           <button
             onClick={() => navigate('/')}
-            className="px-6 py-3 bg-gradient-to-r from-blue-600 to-cyan-500 text-white rounded-lg hover:shadow-lg transition-all"
+            className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-all"
           >
             Go Home
           </button>
@@ -200,21 +336,23 @@ export default function JobApplicationForm() {
 
   if (success) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-slate-900 flex items-center justify-center p-4">
+      <div className="min-h-screen bg-slate-900 flex items-center justify-center p-4">
         <div className="max-w-md w-full bg-white rounded-2xl shadow-2xl p-8 text-center">
           <CheckCircle className="w-16 h-16 text-green-600 mx-auto mb-4" />
           <h2 className="text-2xl font-bold text-slate-900 mb-2">Application Submitted!</h2>
           <p className="text-slate-600 mb-6">
             Thank you for applying. We'll review your application and get back to you soon.
           </p>
-          <p className="text-sm text-slate-500">Redirecting to home page...</p>
+          <p className="text-sm text-slate-500">
+            You can safely close this window. Your application has been saved.
+          </p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-slate-900 py-12 px-4">
+    <div className="min-h-screen bg-slate-900 py-12 px-4">
       <div className="max-w-4xl mx-auto">
         <button
           onClick={() => navigate('/')}
@@ -227,7 +365,7 @@ export default function JobApplicationForm() {
         <div className="bg-white rounded-2xl shadow-2xl overflow-hidden">
           {/* Job Details Header */}
           {job && (
-            <div className="bg-gradient-to-r from-blue-600 to-cyan-500 p-8 text-white">
+            <div className="bg-blue-600 p-8 text-white">
               <div className="flex items-center space-x-4 mb-4">
                 <div className="w-16 h-16 bg-white/20 rounded-full flex items-center justify-center">
                   <Briefcase className="w-8 h-8" />
@@ -330,45 +468,86 @@ export default function JobApplicationForm() {
                 <label htmlFor="resume" className="block text-sm font-medium text-slate-700 mb-2">
                   Resume/CV (PDF or Word Document)
                 </label>
-                <div className="border-2 border-dashed border-slate-300 rounded-lg p-6 hover:border-blue-400 transition-colors">
-                  <input
-                    id="resume"
-                    type="file"
-                    accept=".pdf,.doc,.docx"
-                    onChange={handleFileChange}
-                    className="hidden"
-                  />
-                  <label
-                    htmlFor="resume"
-                    className="cursor-pointer flex flex-col items-center space-y-2"
-                  >
-                    <Upload className="w-8 h-8 text-slate-400" />
-                    <span className="text-sm text-slate-600">
-                      {resumeFile ? resumeFile.name : 'Click to upload or drag and drop'}
-                    </span>
-                    <span className="text-xs text-slate-500">PDF, DOC, DOCX (Max 5MB)</span>
-                  </label>
-                </div>
-                {resumeFile && (
-                  <div className="mt-2 flex items-center space-x-2 text-sm text-green-600">
-                    <FileText className="w-4 h-4" />
-                    <span>{resumeFile.name}</span>
+                {!resumeFile ? (
+                  <div className="border-2 border-dashed border-slate-300 rounded-lg p-6 hover:border-blue-400 transition-colors">
+                    <input
+                      id="resume"
+                      type="file"
+                      accept=".pdf,.doc,.docx"
+                      onChange={handleFileChange}
+                      className="hidden"
+                    />
+                    <label
+                      htmlFor="resume"
+                      className="cursor-pointer flex flex-col items-center space-y-2"
+                    >
+                      <Upload className="w-8 h-8 text-slate-400" />
+                      <span className="text-sm text-slate-600">
+                        Click to upload or drag and drop
+                      </span>
+                      <span className="text-xs text-slate-500">PDF, DOC, DOCX (Max 5MB)</span>
+                    </label>
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    {/* File info and replace button */}
+                    <div className="border border-slate-300 rounded-lg p-4 bg-slate-50">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center space-x-3">
+                          <FileText className="w-5 h-5 text-blue-600" />
+                          <div>
+                            <p className="text-sm font-medium text-slate-700">{resumeFile.name}</p>
+                            <p className="text-xs text-slate-500">
+                              {(resumeFile.size / 1024).toFixed(2)} KB
+                              {resumeFile.type === 'application/pdf' || resumeFile.name.toLowerCase().endsWith('.pdf') ? (
+                                <span className="ml-2 text-blue-600">• Text will be extracted automatically</span>
+                              ) : null}
+                            </p>
+                          </div>
+                        </div>
+                        <div className="flex items-center space-x-2">
+                          <label
+                            htmlFor="resume-replace"
+                            className="cursor-pointer px-4 py-2 text-sm font-medium text-blue-600 hover:text-blue-700 border border-blue-600 rounded-lg hover:bg-blue-50 transition-colors"
+                          >
+                            Replace
+                          </label>
+                          <input
+                            id="resume-replace"
+                            type="file"
+                            accept=".pdf,.doc,.docx"
+                            onChange={handleFileChange}
+                            className="hidden"
+                          />
+                          <button
+                            type="button"
+                            onClick={handleRemoveFile}
+                            className="p-2 text-slate-400 hover:text-red-600 transition-colors"
+                            title="Remove file"
+                          >
+                            <X className="w-5 h-5" />
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* PDF Preview */}
+                    {resumePreviewUrl && (
+                      <div className="border border-slate-300 rounded-lg overflow-hidden">
+                        <div className="bg-slate-100 px-4 py-2 border-b border-slate-300">
+                          <p className="text-sm font-medium text-slate-700">Preview</p>
+                        </div>
+                        <div className="bg-slate-200" style={{ height: '600px' }}>
+                          <iframe
+                            src={resumePreviewUrl}
+                            className="w-full h-full"
+                            title="Resume Preview"
+                          />
+                        </div>
+                      </div>
+                    )}
                   </div>
                 )}
-              </div>
-
-              <div>
-                <label htmlFor="resumeText" className="block text-sm font-medium text-slate-700 mb-2">
-                  Additional Information / Resume Text
-                </label>
-                <textarea
-                  id="resumeText"
-                  rows={6}
-                  value={formData.resumeText}
-                  onChange={(e) => setFormData({ ...formData, resumeText: e.target.value })}
-                  className="w-full px-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
-                  placeholder="Paste your resume text or add any additional information here..."
-                />
               </div>
 
               <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
@@ -380,10 +559,14 @@ export default function JobApplicationForm() {
 
               <button
                 type="submit"
-                disabled={submitting}
-                className="w-full py-4 bg-gradient-to-r from-blue-600 to-cyan-500 text-white text-lg font-bold rounded-lg hover:shadow-xl hover:shadow-blue-500/30 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                disabled={submitting || extractingText}
+                className="w-full py-4 bg-blue-600 text-white text-lg font-bold rounded-lg hover:bg-blue-700 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                {submitting ? 'Submitting Application...' : 'Submit Application'}
+                {extractingText 
+                  ? 'Extracting text from resume...' 
+                  : submitting 
+                  ? 'Submitting Application...' 
+                  : 'Submit Application'}
               </button>
             </form>
           </div>

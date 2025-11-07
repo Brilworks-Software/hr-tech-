@@ -1,19 +1,19 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { X, Sparkles } from 'lucide-react';
 import { jobService } from '../services/jobService';
-import { useAuth } from '../contexts/AuthContext';
 import { useToast } from '../contexts/ToastContext';
 import { generateJobDescription } from '../services/geminiService';
+import { Job } from '../lib/firebase';
 
-interface CreateJobModalProps {
+interface EditJobModalProps {
+  job: Job;
   onClose: () => void;
   onSuccess: () => void;
 }
 
-export default function CreateJobModal({ onClose, onSuccess }: CreateJobModalProps) {
+export default function EditJobModal({ job, onClose, onSuccess }: EditJobModalProps) {
   const [loading, setLoading] = useState(false);
   const [generatingDescription, setGeneratingDescription] = useState(false);
-  const { currentUser } = useAuth();
   const { showToast } = useToast();
   const [formData, setFormData] = useState({
     title: '',
@@ -25,6 +25,57 @@ export default function CreateJobModal({ onClose, onSuccess }: CreateJobModalPro
     skills: '',
     status: 'draft' as 'draft' | 'active' | 'closed',
   });
+
+  // Initialize form with job data
+  useEffect(() => {
+    if (job) {
+      // Extract experience number (remove "years" if present)
+      let experienceValue = job.requirements?.experience || '';
+      if (experienceValue) {
+        experienceValue = experienceValue.replace(/\s*years?\s*/gi, '').trim();
+      }
+
+      // Extract salary and currency
+      let salaryValue = job.requirements?.salary || '';
+      let currency = 'USD';
+      if (salaryValue) {
+        // Detect currency from salary string
+        if (salaryValue.startsWith('$') || salaryValue.includes('USD')) {
+          currency = 'USD';
+          salaryValue = salaryValue.replace(/^\$|USD/gi, '').trim();
+        } else if (salaryValue.startsWith('€') || salaryValue.includes('EUR')) {
+          currency = 'EUR';
+          salaryValue = salaryValue.replace(/^€|EUR/gi, '').trim();
+        } else if (salaryValue.startsWith('£') || salaryValue.includes('GBP')) {
+          currency = 'GBP';
+          salaryValue = salaryValue.replace(/^£|GBP/gi, '').trim();
+        } else if (salaryValue.startsWith('₹') || salaryValue.includes('INR')) {
+          currency = 'INR';
+          salaryValue = salaryValue.replace(/^₹|INR/gi, '').trim();
+        } else if (salaryValue.startsWith('C$') || salaryValue.includes('CAD')) {
+          currency = 'CAD';
+          salaryValue = salaryValue.replace(/^C\$|CAD/gi, '').trim();
+        } else if (salaryValue.startsWith('A$') || salaryValue.includes('AUD')) {
+          currency = 'AUD';
+          salaryValue = salaryValue.replace(/^A\$|AUD/gi, '').trim();
+        } else if (salaryValue.startsWith('¥') || salaryValue.includes('JPY')) {
+          currency = 'JPY';
+          salaryValue = salaryValue.replace(/^¥|JPY/gi, '').trim();
+        }
+      }
+
+      setFormData({
+        title: job.title || '',
+        description: job.description || '',
+        location: job.requirements?.location || '',
+        experience: experienceValue,
+        salary: salaryValue,
+        salaryCurrency: currency,
+        skills: job.requirements?.skills?.join(', ') || '',
+        status: job.status || 'draft',
+      });
+    }
+  }, [job]);
 
   const handleGenerateDescription = async () => {
     if (!formData.title.trim()) {
@@ -94,20 +145,20 @@ export default function CreateJobModal({ onClose, onSuccess }: CreateJobModalPro
         skills: formData.skills.split(',').map((s) => s.trim()).filter(Boolean),
       };
 
-      await jobService.createJob({
+      await jobService.updateJob(job.id, {
         title: formData.title,
         description: formData.description,
         requirements,
         status: formData.status,
-        createdBy: currentUser?.uid || null,
       });
 
       setLoading(false);
+      showToast('Job updated successfully!', 'success');
       onSuccess();
     } catch (error) {
       setLoading(false);
       const err = error as Error;
-      showToast('Error creating job: ' + err.message, 'error');
+      showToast('Error updating job: ' + err.message, 'error');
     }
   };
 
@@ -115,7 +166,7 @@ export default function CreateJobModal({ onClose, onSuccess }: CreateJobModalPro
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
       <div className="bg-white rounded-2xl max-w-2xl w-full max-h-[90vh] overflow-auto">
         <div className="sticky top-0 bg-white border-b border-slate-200 px-6 py-4 flex items-center justify-between">
-          <h2 className="text-2xl font-bold text-slate-900">Post New Job</h2>
+          <h2 className="text-2xl font-bold text-slate-900">Edit Job</h2>
           <button
             onClick={onClose}
             className="p-2 hover:bg-slate-100 rounded-lg transition-colors"
@@ -266,7 +317,7 @@ export default function CreateJobModal({ onClose, onSuccess }: CreateJobModalPro
               disabled={loading}
               className="px-5 py-2.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-all disabled:opacity-50"
             >
-              {loading ? 'Creating...' : 'Post Job'}
+              {loading ? 'Updating...' : 'Update Job'}
             </button>
           </div>
         </form>
@@ -274,3 +325,4 @@ export default function CreateJobModal({ onClose, onSuccess }: CreateJobModalPro
     </div>
   );
 }
+

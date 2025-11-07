@@ -30,6 +30,29 @@ firebase deploy --only functions
 
 ## Available Functions
 
+### `getWebRTCConfig`
+**Type:** HTTPS Callable Function
+**Purpose:** Provides WebRTC ICE server configuration (STUN/TURN servers) for video interviews
+
+**Parameters:** None
+
+**Response:**
+```json
+{
+  "iceServers": [
+    { "urls": "stun:stun.l.google.com:19302" },
+    // ... more STUN and TURN servers
+  ],
+  "iceCandidatePoolSize": 10
+}
+```
+
+**Note:** This function includes free public TURN servers. For production, consider integrating with paid TURN services like:
+- Twilio Network Traversal Service
+- Metered TURN
+- Xirsys
+- Custom TURN server (coturn)
+
 ### `sendInterviewEmail`
 **Type:** HTTPS Callable Function
 **Purpose:** Sends interview invitation emails to candidates

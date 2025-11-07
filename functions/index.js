@@ -213,3 +213,45 @@ exports.onInterviewCompleted = functions.firestore
 
     return null;
   });
+
+/**
+ * Get TURN/STUN server credentials for WebRTC
+ * This helps establish connections when both peers are behind NATs/firewalls
+ */
+exports.getWebRTCConfig = functions.https.onCall(async (data, context) => {
+  // You can integrate with paid TURN services here (Twilio, Metered, etc.)
+  // For now, we'll use free public TURN servers and STUN servers
+  
+  const iceServers = [
+    // STUN servers (free)
+    { urls: 'stun:stun.l.google.com:19302' },
+    { urls: 'stun:stun1.l.google.com:19302' },
+    { urls: 'stun:stun2.l.google.com:19302' },
+    { urls: 'stun:stun3.l.google.com:19302' },
+    { urls: 'stun:stun4.l.google.com:19302' },
+    
+    // Free public TURN servers (may have usage limits)
+    // Note: These are free services and may not be reliable for production
+    // For production, consider using paid services like Twilio, Metered, or Xirsys
+    {
+      urls: 'turn:openrelay.metered.ca:80',
+      username: 'openrelayproject',
+      credential: 'openrelayproject',
+    },
+    {
+      urls: 'turn:openrelay.metered.ca:443',
+      username: 'openrelayproject',
+      credential: 'openrelayproject',
+    },
+    {
+      urls: 'turn:openrelay.metered.ca:443?transport=tcp',
+      username: 'openrelayproject',
+      credential: 'openrelayproject',
+    },
+  ];
+
+  return {
+    iceServers,
+    iceCandidatePoolSize: 10,
+  };
+});
