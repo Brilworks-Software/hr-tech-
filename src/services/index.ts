@@ -12,6 +12,5 @@ export { interviewService } from './interviewService';
 export { companyService } from './companyService';
 export { analyticsService } from './analyticsService';
 export { storageService } from './storageService';
-export { webrtcService } from './webrtcService';
 export { userService } from './userService';
 

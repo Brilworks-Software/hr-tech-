@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { BarChart3, TrendingUp, Users, Briefcase, Award, Brain, Eye, AlertTriangle, ChevronDown, Filter } from 'lucide-react';
+import { BarChart3, TrendingUp, Users, Briefcase, Award, Brain, Eye, AlertTriangle, ChevronDown } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { analyticsService } from '../services/analyticsService';
 import { jobService } from '../services/jobService';
@@ -9,7 +9,7 @@ import { Job, Application, Interview } from '../lib/firebase';
 
 export default function AnalyticsView() {
   const { currentUser } = useAuth();
-  const [stats, setStats] = useState({
+  const [, setStats] = useState({
     totalJobs: 0,
     activeJobs: 0,
     totalApplications: 0,

@@ -147,19 +147,6 @@ export default function JobDetailsView() {
     }
   };
 
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'active':
-        return 'bg-green-100 text-green-800 border-green-200';
-      case 'draft':
-        return 'bg-yellow-100 text-yellow-800 border-yellow-200';
-      case 'closed':
-        return 'bg-slate-100 text-slate-800 border-slate-200';
-      default:
-        return 'bg-slate-100 text-slate-800 border-slate-200';
-    }
-  };
-
   const getApplicationStatusColor = (status: string) => {
     switch (status) {
       case 'hired':
@@ -228,13 +215,33 @@ export default function JobDetailsView() {
           <span>Back to Jobs</span>
         </button>
         <div className="flex items-center space-x-3">
-          <div className={`px-4 py-2 rounded-lg border-2 flex items-center space-x-2 ${getStatusColor(job.status)}`}>
-            <span className="font-semibold capitalize">{job.status}</span>
+          {/* Status Filter Buttons */}
+          <div className="flex items-center bg-white border border-slate-200 rounded-lg p-1 shadow-sm">
+            {(['draft', 'active', 'closed'] as const).map((statusOption) => (
+              <button
+                key={statusOption}
+                onClick={() => handleStatusUpdate(statusOption)}
+                disabled={statusUpdating || job.status === statusOption}
+                className={`px-4 py-1.5 rounded-md text-sm font-medium transition-all ${
+                  job.status === statusOption
+                    ? statusOption === 'active'
+                      ? 'bg-green-500 text-white shadow-sm'
+                      : statusOption === 'draft'
+                      ? 'bg-yellow-500 text-white shadow-sm'
+                      : 'bg-slate-500 text-white shadow-sm'
+                    : 'text-slate-600 hover:bg-slate-50'
+                } ${statusUpdating ? 'opacity-50 cursor-not-allowed' : ''}`}
+                title={job.status === statusOption ? `Current status: ${statusOption}` : `Change to ${statusOption}`}
+              >
+                {statusUpdating && job.status !== statusOption ? 'Updating...' : statusOption.charAt(0).toUpperCase() + statusOption.slice(1)}
+              </button>
+            ))}
           </div>
+
           {job.status === 'active' && (
             <button
               onClick={handleShareJob}
-              className="flex items-center space-x-2 px-4 py-2 bg-blue-50 hover:bg-blue-100 text-blue-700 rounded-lg transition-colors"
+              className="flex items-center space-x-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors shadow-sm"
             >
               {copied ? (
                 <>
@@ -360,29 +367,6 @@ export default function JobDetailsView() {
                   </div>
                 </div>
               )}
-
-              {/* Status Update */}
-              <div className="pt-4 border-t border-slate-200">
-                <h3 className="font-semibold text-slate-900 mb-3">Update Job Status</h3>
-                <div className="flex flex-wrap gap-3">
-                  {(['draft', 'active', 'closed'] as const).map((statusOption) => (
-                    <button
-                      key={statusOption}
-                      onClick={() => handleStatusUpdate(statusOption)}
-                      disabled={statusUpdating || job.status === statusOption}
-                      className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
-                        getStatusColor(statusOption)
-                      } ${
-                        job.status === statusOption
-                          ? 'opacity-70 cursor-not-allowed'
-                          : 'hover:shadow-md cursor-pointer'
-                      } ${statusUpdating ? 'opacity-50 cursor-not-allowed' : ''}`}
-                    >
-                      {statusUpdating && job.status !== statusOption ? 'Updating...' : statusOption.charAt(0).toUpperCase() + statusOption.slice(1)}
-                    </button>
-                  ))}
-                </div>
-              </div>
             </div>
           </div>
 

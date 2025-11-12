@@ -399,14 +399,12 @@ export default function CandidateProfileView() {
                     </div>
                     <div className="flex items-center space-x-3">
                       {interview.status === 'scheduled' && (
-                        <a
-                          href={`/interview/${interview.id}`}
-                          target="_blank"
-                          rel="noopener noreferrer"
+                        <button
+                          onClick={() => navigate(`/interview/${interview.id}`)}
                           className="text-sm text-blue-600 hover:text-blue-700 font-medium"
                         >
                           Join Interview →
-                        </a>
+                        </button>
                       )}
                     </div>
                   </div>

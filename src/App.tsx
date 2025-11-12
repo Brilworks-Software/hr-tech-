@@ -9,9 +9,10 @@ import ApplicationsView from './components/ApplicationsView';
 import CandidatesView from './components/CandidatesView';
 import InterviewsView from './components/InterviewsView';
 import AnalyticsView from './components/AnalyticsView';
-import InterviewPage from './components/InterviewPage';
 import InterviewDetailsView from './components/InterviewDetailsView';
 import JobApplicationForm from './components/JobApplicationForm';
+import CandidateInterview from './pages/CandidateInterview';
+import HRDashboard from './pages/HRDashboard';
 import ApplicationDetailsView from './components/ApplicationDetailsView';
 import CandidateProfileView from './components/CandidateProfileView';
 import JobDetailsView from './components/JobDetailsView';
@@ -63,6 +64,7 @@ function Dashboard() {
   return <Layout currentView={currentView} onNavigate={handleNavigate}>{viewComponent}</Layout>;
 }
 
+
 // Wrapper component for detail pages that need Layout with navigation
 function DetailLayoutWrapper({ currentView, children }: { currentView: string; children: React.ReactNode }) {
   const navigate = useNavigate();
@@ -99,7 +101,15 @@ export default function App() {
             }
           />
           <Route path="/apply/:jobId" element={<JobApplicationForm />} />
-          <Route path="/interview/:interviewId" element={<InterviewPage />} />
+          <Route path="/interview/:interviewId" element={<CandidateInterview />} />
+          <Route
+            path="/interview/:interviewId/hr"
+            element={
+              <ProtectedRoute>
+                <HRDashboard />
+              </ProtectedRoute>
+            }
+          />
           <Route
             path="/interviews/:interviewId"
             element={

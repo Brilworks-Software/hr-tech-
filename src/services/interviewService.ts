@@ -55,6 +55,16 @@ export const interviewService = {
   },
 
   /**
+   * Generate a unique video room/channel code (now used as Agora channel)
+   */
+  generateRoomCode(): string {
+    const randomPart1 = Math.random().toString(36).substring(2, 8).toLowerCase();
+    const randomPart2 = Math.random().toString(36).substring(2, 8).toLowerCase();
+    const randomPart3 = Math.random().toString(36).substring(2, 6).toLowerCase();
+    return `${randomPart1}-${randomPart2}-${randomPart3}`;
+  },
+
+  /**
    * Schedule interview and send email notification
    */
   async scheduleInterviewWithEmail(data: ScheduleInterviewWithEmailData): Promise<string> {
@@ -63,6 +73,14 @@ export const interviewService = {
       scheduledAt: data.scheduledAt,
       duration: data.duration,
       instructions: data.instructions,
+    });
+
+    // Generate room code (Agora channel name)
+    const roomCode = this.generateRoomCode();
+
+    // Save Agora channel to Firestore
+    await updateDoc(doc(db, 'interviews', interviewId), {
+      agoraChannel: roomCode,
     });
 
     const interviewLink = `${window.location.origin}/interview/${interviewId}`;
@@ -89,6 +107,7 @@ export const interviewService = {
         interviewLink,
         duration: data.duration || 30,
         instructions: data.instructions || '',
+        roomCode: roomCode, // Include room code in email
       });
     } catch (emailError) {
       console.error('Error sending email:', emailError);
@@ -199,6 +218,7 @@ export const interviewService = {
     } as Interview;
   },
 
+
   /**
    * Mark HR as joined
    */
@@ -221,12 +241,10 @@ export const interviewService = {
   /**
    * Complete an interview
    */
-  async completeInterview(interviewId: string, videoUrl?: string, transcript?: string): Promise<void> {
+  async completeInterview(interviewId: string): Promise<void> {
     await updateDoc(doc(db, 'interviews', interviewId), {
       status: 'completed',
       completedAt: Timestamp.now(),
-      videoUrl: videoUrl || null,
-      transcript: transcript || null,
     });
   },
 
@@ -260,6 +278,14 @@ export const interviewService = {
     await updateDoc(doc(db, 'interviews', interviewId), {
       status: 'cancelled',
     });
+  },
+
+  /**
+   * Save interview analysis data (placeholder - feature coming soon)
+   */
+  async saveInterviewAnalysis(interviewId: string): Promise<void> {
+    console.log('Interview analysis feature coming soon:', interviewId);
+    // Feature disabled
   },
 };
 

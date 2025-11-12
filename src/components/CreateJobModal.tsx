@@ -32,9 +32,23 @@ export default function CreateJobModal({ onClose, onSuccess }: CreateJobModalPro
       return;
     }
 
+    // Validate that at least location, experience, or salary is provided
+    if (!formData.location.trim() && !formData.experience.trim() && !formData.salary.trim()) {
+      showToast('Please provide at least Location, Experience, or Salary Range to generate a better description', 'error');
+      return;
+    }
+
     setGeneratingDescription(true);
     try {
-      const generatedDescription = await generateJobDescription(formData.title);
+      // Prepare job details for generation
+      const jobDetails = {
+        title: formData.title,
+        location: formData.location || undefined,
+        experience: formData.experience || undefined,
+        salary: formData.salary ? `${formData.salaryCurrency} ${formData.salary}` : undefined,
+      };
+
+      const generatedDescription = await generateJobDescription(jobDetails);
       setFormData({ ...formData, description: generatedDescription });
       showToast('Job description generated successfully!', 'success');
     } catch (error) {
@@ -139,31 +153,6 @@ export default function CreateJobModal({ onClose, onSuccess }: CreateJobModalPro
             />
           </div>
 
-          <div>
-            <div className="flex items-center justify-between mb-2">
-              <label className="block text-sm font-semibold text-slate-900">
-                Job Description *
-              </label>
-              <button
-                type="button"
-                onClick={handleGenerateDescription}
-                disabled={generatingDescription || !formData.title.trim()}
-                className="flex items-center gap-2 px-3 py-1.5 text-sm bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-100 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                <Sparkles className="w-4 h-4" />
-                {generatingDescription ? 'Generating...' : 'Generate with AI'}
-              </button>
-            </div>
-            <textarea
-              required
-              value={formData.description}
-              onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-              rows={8}
-              className="w-full px-4 py-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              placeholder="Provide a detailed description of the role, responsibilities, and requirements... Or click 'Generate with AI' to auto-generate based on job title."
-            />
-          </div>
-
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-semibold text-slate-900 mb-2">
@@ -223,6 +212,35 @@ export default function CreateJobModal({ onClose, onSuccess }: CreateJobModalPro
                 placeholder="e.g., 120k - 160k"
               />
             </div>
+          </div>
+
+          <div>
+            <div className="flex items-center justify-between mb-2">
+              <label className="block text-sm font-semibold text-slate-900">
+                Job Description *
+              </label>
+              <button
+                type="button"
+                onClick={handleGenerateDescription}
+                disabled={generatingDescription || !formData.title.trim()}
+                className="flex items-center gap-2 px-3 py-1.5 text-sm bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-100 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                title="Fill in Job Title, Location, Experience, and Salary Range for better results"
+              >
+                <Sparkles className="w-4 h-4" />
+                {generatingDescription ? 'Generating...' : 'Generate with AI'}
+              </button>
+            </div>
+            <p className="text-xs text-slate-500 mb-2">
+              Tip: Fill in Location, Experience, and Salary Range above before generating for more accurate results
+            </p>
+            <textarea
+              required
+              value={formData.description}
+              onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+              rows={8}
+              className="w-full px-4 py-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              placeholder="Provide a detailed description of the role, responsibilities, and requirements... Or click 'Generate with AI' to auto-generate based on job details."
+            />
           </div>
 
           <div>

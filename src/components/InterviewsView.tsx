@@ -206,8 +206,8 @@ export default function InterviewsView() {
   };
 
   const handleJoinInterview = (interviewId: string) => {
-    const interviewLink = `${window.location.origin}/interview/${interviewId}`;
-    window.open(interviewLink, '_blank');
+    // Navigate to HR dashboard for video interview
+    navigate(`/interview/${interviewId}/hr`);
   };
 
   const handleCopyLink = (interviewId: string) => {
