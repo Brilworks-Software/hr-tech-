@@ -365,51 +365,88 @@ export default function JobApplicationForm() {
         <div className="bg-white rounded-2xl shadow-2xl overflow-hidden">
           {/* Job Details Header */}
           {job && (
-            <div className="bg-blue-600 p-8 text-white">
-              <div className="flex items-center space-x-4 mb-4">
-                <div className="w-16 h-16 bg-white/20 rounded-full flex items-center justify-center">
-                  <Briefcase className="w-8 h-8" />
+            <>
+              <div className="bg-blue-600 p-6 md:p-8 text-white">
+                <div className="flex items-center space-x-3 md:space-x-4 mb-4">
+                  <div className="w-12 h-12 md:w-16 md:h-16 bg-white/20 rounded-full flex items-center justify-center">
+                    <Briefcase className="w-6 h-6 md:w-8 md:h-8" />
+                  </div>
+                  <div>
+                    <h1 className="text-2xl md:text-3xl font-bold">{job.title}</h1>
+                    <p className="text-blue-100 mt-1 text-sm md:text-base">Apply Now</p>
+                  </div>
                 </div>
-                <div>
-                  <h1 className="text-3xl font-bold">{job.title}</h1>
-                  <p className="text-blue-100 mt-1">Apply Now</p>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 md:gap-4 mt-6">
+                  {job.requirements?.location && (
+                    <div className="flex items-center space-x-2">
+                      <MapPin className="w-4 h-4 md:w-5 md:h-5 flex-shrink-0" />
+                      <span className="text-sm md:text-base">{job.requirements.location}</span>
+                    </div>
+                  )}
+                  {job.requirements?.experience && (
+                    <div className="flex items-center space-x-2">
+                      <Clock className="w-4 h-4 md:w-5 md:h-5 flex-shrink-0" />
+                      <span className="text-sm md:text-base">{job.requirements.experience}</span>
+                    </div>
+                  )}
+                  {job.requirements?.salary && (
+                    <div className="flex items-center space-x-2">
+                      <DollarSign className="w-4 h-4 md:w-5 md:h-5 flex-shrink-0" />
+                      <span className="text-sm md:text-base">{job.requirements.salary}</span>
+                    </div>
+                  )}
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-6">
-                {job.requirements?.location && (
-                  <div className="flex items-center space-x-2">
-                    <MapPin className="w-5 h-5" />
-                    <span>{job.requirements.location}</span>
+              {/* Job Description Section */}
+              <div className="bg-slate-50 border-b border-slate-200 p-6 md:p-8">
+                <h2 className="text-xl md:text-2xl font-bold text-slate-900 mb-4 flex items-center">
+                  <FileText className="w-5 h-5 md:w-6 md:h-6 mr-2 text-blue-600" />
+                  About This Role
+                </h2>
+                
+                {job.description && (
+                  <div className="mb-6">
+                    <h3 className="text-base md:text-lg font-semibold text-slate-900 mb-2">Description</h3>
+                    <p className="text-slate-700 whitespace-pre-wrap leading-relaxed text-sm md:text-base">
+                      {job.description}
+                    </p>
                   </div>
                 )}
-                {job.requirements?.experience && (
-                  <div className="flex items-center space-x-2">
-                    <Clock className="w-5 h-5" />
-                    <span>{job.requirements.experience}</span>
-                  </div>
-                )}
-                {job.requirements?.salary && (
-                  <div className="flex items-center space-x-2">
-                    <DollarSign className="w-5 h-5" />
-                    <span>{job.requirements.salary}</span>
+
+                {job.requirements?.skills && job.requirements.skills.length > 0 && (
+                  <div>
+                    <h3 className="text-base md:text-lg font-semibold text-slate-900 mb-3">Required Skills</h3>
+                    <div className="flex flex-wrap gap-2">
+                      {job.requirements.skills.map((skill, index) => (
+                        <span
+                          key={index}
+                          className="px-3 py-1.5 bg-blue-100 text-blue-700 rounded-full text-xs md:text-sm font-medium border border-blue-200"
+                        >
+                          {skill}
+                        </span>
+                      ))}
+                    </div>
                   </div>
                 )}
               </div>
-            </div>
+            </>
           )}
 
           {/* Application Form */}
-          <div className="p-8">
+          <div className="p-6 md:p-8">
+            <h2 className="text-xl md:text-2xl font-bold text-slate-900 mb-6">Submit Your Application</h2>
+            
             {error && (
-              <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg flex items-start space-x-3">
+              <div className="mb-6 p-3 md:p-4 bg-red-50 border border-red-200 rounded-lg flex items-start space-x-3">
                 <AlertCircle className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" />
-                <p className="text-sm text-red-800">{error}</p>
+                <p className="text-xs md:text-sm text-red-800">{error}</p>
               </div>
             )}
 
-            <form onSubmit={handleSubmit} className="space-y-6">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <form onSubmit={handleSubmit} className="space-y-5 md:space-y-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
                 <div>
                   <label htmlFor="name" className="block text-sm font-medium text-slate-700 mb-2">
                     Full Name <span className="text-red-500">*</span>
@@ -422,7 +459,7 @@ export default function JobApplicationForm() {
                       required
                       value={formData.name}
                       onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                      className="w-full pl-10 pr-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
+                      className="w-full pl-10 pr-4 py-2.5 md:py-3 text-sm md:text-base border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
                       placeholder="John Doe"
                     />
                   </div>
@@ -440,7 +477,7 @@ export default function JobApplicationForm() {
                       required
                       value={formData.email}
                       onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                      className="w-full pl-10 pr-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
+                      className="w-full pl-10 pr-4 py-2.5 md:py-3 text-sm md:text-base border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
                       placeholder="john@example.com"
                     />
                   </div>
@@ -458,7 +495,7 @@ export default function JobApplicationForm() {
                     type="tel"
                     value={formData.phone}
                     onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-                    className="w-full pl-10 pr-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
+                    className="w-full pl-10 pr-4 py-2.5 md:py-3 text-sm md:text-base border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
                     placeholder="+1 (555) 123-4567"
                   />
                 </div>
@@ -550,8 +587,8 @@ export default function JobApplicationForm() {
                 )}
               </div>
 
-              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                <p className="text-sm text-blue-800">
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 md:p-4">
+                <p className="text-xs md:text-sm text-blue-800">
                   <strong>Note:</strong> Your application will be reviewed by our HR team. We'll contact you via email
                   if you're selected for the next round.
                 </p>
@@ -560,7 +597,7 @@ export default function JobApplicationForm() {
               <button
                 type="submit"
                 disabled={submitting || extractingText}
-                className="w-full py-4 bg-blue-600 text-white text-lg font-bold rounded-lg hover:bg-blue-700 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                className="w-full py-3 md:py-4 bg-blue-600 text-white text-base md:text-lg font-bold rounded-lg hover:bg-blue-700 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {extractingText 
                   ? 'Extracting text from resume...' 

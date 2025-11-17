@@ -93,27 +93,27 @@ export default function SignUp() {
   return (
     <div className="min-h-screen bg-slate-900 flex items-center justify-center p-4">
       <div className="max-w-md w-full bg-white rounded-2xl shadow-2xl overflow-hidden">
-        <div className="bg-blue-600 p-8 text-white">
-          <div className="flex items-center justify-center mb-4">
+        <div className="bg-blue-600 p-6 md:p-8 text-white">
+          <div className="flex items-center justify-center mb-3 md:mb-4">
             <img 
               src={logoImage} 
               alt="HR-tech Logo" 
-              className="h-16 w-auto"
+              className="h-12 md:h-16 w-auto"
             />
           </div>
-          <h1 className="text-3xl font-bold text-center mb-2">Create Account</h1>
-          <p className="text-center text-blue-100">Join HR-tech Platform</p>
+          <h1 className="text-2xl md:text-3xl font-bold text-center mb-2">Create Account</h1>
+          <p className="text-center text-sm md:text-base text-blue-100">Join HR-tech today</p>
         </div>
 
-        <div className="p-8">
+        <div className="p-6 md:p-8">
           {error && (
-            <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg flex items-start space-x-3">
+            <div className="mb-4 md:mb-6 p-3 md:p-4 bg-red-50 border border-red-200 rounded-lg flex items-start space-x-3">
               <AlertCircle className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" />
-              <p className="text-sm text-red-800">{error}</p>
+              <p className="text-xs md:text-sm text-red-800">{error}</p>
             </div>
           )}
 
-          <form onSubmit={handleSubmit} className="space-y-6">
+          <form onSubmit={handleSubmit} className="space-y-4 md:space-y-6">
             <div>
               <label htmlFor="email" className="block text-sm font-medium text-slate-700 mb-2">
                 Email Address
@@ -125,7 +125,7 @@ export default function SignUp() {
                   type="email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  className="w-full pl-10 pr-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
+                  className="w-full pl-10 pr-4 py-2.5 md:py-3 text-sm md:text-base border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
                   placeholder="you@example.com"
                   required
                 />
@@ -143,7 +143,7 @@ export default function SignUp() {
                   type={showPassword ? 'text' : 'password'}
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  className="w-full pl-10 pr-12 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
+                  className="w-full pl-10 pr-12 py-2.5 md:py-3 text-sm md:text-base border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
                   placeholder="Minimum 6 characters"
                   required
                 />
@@ -185,7 +185,7 @@ export default function SignUp() {
                   type={showConfirmPassword ? 'text' : 'password'}
                   value={confirmPassword}
                   onChange={(e) => setConfirmPassword(e.target.value)}
-                  className="w-full pl-10 pr-12 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
+                  className="w-full pl-10 pr-12 py-2.5 md:py-3 text-sm md:text-base border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
                   placeholder="Confirm your password"
                   required
                 />
@@ -222,14 +222,14 @@ export default function SignUp() {
             <button
               type="submit"
               disabled={loading}
-              className="w-full py-3 bg-blue-600 text-white text-lg font-bold rounded-lg hover:bg-blue-700 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+              className="w-full py-2.5 md:py-3 bg-blue-600 text-white text-base md:text-lg font-bold rounded-lg hover:bg-blue-700 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {loading ? 'Creating Account...' : 'Sign Up'}
             </button>
           </form>
 
-          <div className="mt-6 text-center">
-            <p className="text-sm text-slate-600">
+          <div className="mt-5 md:mt-6 text-center">
+            <p className="text-xs md:text-sm text-slate-600">
               Already have an account?{' '}
               <Link to="/login" className="text-blue-600 font-medium hover:text-blue-700">
                 Sign in

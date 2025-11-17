@@ -246,67 +246,9 @@ export default function InterviewDetailsView() {
           </div>
         </div>
 
-        {/* Transcript Section */}
-        {transcripts.length > 0 ? (
-          <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
-            <div className="flex items-center justify-between mb-6">
-              <div className="flex items-center">
-                <FileText className="w-6 h-6 mr-3 text-blue-600" />
-                <h2 className="text-2xl font-bold text-slate-900">Interview Transcript</h2>
-              </div>
-              {interview.status === 'completed' && !evaluation && (
-                <button
-                  onClick={handleGenerateEvaluation}
-                  disabled={loadingEvaluation}
-                  className="flex items-center gap-2 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  <Sparkles className="w-5 h-5" />
-                  {loadingEvaluation ? 'Analyzing...' : 'AI Evaluation'}
-                </button>
-              )}
-            </div>
-            <div className="bg-slate-50 border border-slate-200 rounded-lg p-6 max-h-[600px] overflow-y-auto">
-              <div className="space-y-4">
-                {transcripts.map((transcript, index) => (
-                  <div key={index} className="border-l-4 border-blue-500 pl-4 py-2">
-                    <div className="flex items-center gap-2 mb-1">
-                      <span className="font-semibold text-slate-900">
-                        {transcript.userName || 'Unknown'}
-                      </span>
-                      <span className="text-xs text-slate-500">
-                        {transcript.timestamp?.toDate?.()?.toLocaleTimeString() || ''}
-                      </span>
-                    </div>
-                    <p className="text-slate-700 leading-relaxed">
-                      {transcript.text}
-                    </p>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
-        ) : loadingTranscripts ? (
-          <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
-            <div className="text-center py-12">
-              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-              <p className="text-slate-600">Loading transcript...</p>
-            </div>
-          </div>
-        ) : (
-          <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
-            <div className="text-center py-12">
-              <FileText className="w-16 h-16 text-slate-400 mx-auto mb-4" />
-              <h3 className="text-lg font-semibold text-slate-900 mb-2">No Transcript Available</h3>
-              <p className="text-slate-600">
-                The transcript will appear here once the interview is completed and transcription is available.
-              </p>
-            </div>
-          </div>
-        )}
-
-        {/* AI Evaluation Section */}
+        {/* AI Evaluation Section - Show above transcript */}
         {evaluation && (
-          <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
+          <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6 mb-6">
             <div className="flex items-center justify-between mb-6">
               <div className="flex items-center">
                 <Sparkles className="w-6 h-6 mr-3 text-purple-600" />
@@ -429,6 +371,64 @@ export default function InterviewDetailsView() {
             <div className="bg-slate-50 border border-slate-200 rounded-lg p-6">
               <h3 className="font-bold text-slate-900 mb-3">Detailed Insights</h3>
               <p className="text-slate-700 leading-relaxed">{evaluation.keyInsights}</p>
+            </div>
+          </div>
+        )}
+
+        {/* Transcript Section */}
+        {transcripts.length > 0 ? (
+          <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
+            <div className="flex items-center justify-between mb-6">
+              <div className="flex items-center">
+                <FileText className="w-6 h-6 mr-3 text-blue-600" />
+                <h2 className="text-2xl font-bold text-slate-900">Interview Transcript</h2>
+              </div>
+              {interview.status === 'completed' && (
+                <button
+                  onClick={handleGenerateEvaluation}
+                  disabled={loadingEvaluation}
+                  className="flex items-center gap-2 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  <Sparkles className="w-5 h-5" />
+                  {loadingEvaluation ? 'Analyzing...' : evaluation ? 'Regenerate Evaluation' : 'AI Evaluation'}
+                </button>
+              )}
+            </div>
+            <div className="bg-slate-50 border border-slate-200 rounded-lg p-6 max-h-[600px] overflow-y-auto">
+              <div className="space-y-4">
+                {transcripts.map((transcript, index) => (
+                  <div key={index} className="border-l-4 border-blue-500 pl-4 py-2">
+                    <div className="flex items-center gap-2 mb-1">
+                      <span className="font-semibold text-slate-900">
+                        {transcript.userName || 'Unknown'}
+                      </span>
+                      <span className="text-xs text-slate-500">
+                        {transcript.timestamp?.toDate?.()?.toLocaleTimeString() || ''}
+                      </span>
+                    </div>
+                    <p className="text-slate-700 leading-relaxed">
+                      {transcript.text}
+                    </p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        ) : loadingTranscripts ? (
+          <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
+            <div className="text-center py-12">
+              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+              <p className="text-slate-600">Loading transcript...</p>
+            </div>
+          </div>
+        ) : (
+          <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
+            <div className="text-center py-12">
+              <FileText className="w-16 h-16 text-slate-400 mx-auto mb-4" />
+              <h3 className="text-lg font-semibold text-slate-900 mb-2">No Transcript Available</h3>
+              <p className="text-slate-600">
+                The transcript will appear here once the interview is completed and transcription is available.
+              </p>
             </div>
           </div>
         )}
