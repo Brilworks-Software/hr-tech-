@@ -124,3 +124,38 @@ export interface Company {
   createdAt: Date;
   updatedAt: Date;
 }
+
+export interface AICall {
+  id: string;
+  applicationId: string;
+  candidateId: string;
+  candidateName: string;
+  phone: string;
+  status: string;
+  callStatus: string;
+  lastStatus: string;
+  provider: string;
+  twilioCallSid: string;
+  wsBase: string;
+  currentQuestionIndex?: number;
+  completedAt?: string;
+  createdAt: Date;
+  updatedAt: Date;
+  logs: Array<{
+    status: string;
+    t: string;
+    type: string;
+  }>;
+  questionsAnswers: Array<{
+    questionId: string;
+    questionText: string;
+    answer: string;
+    category: string;
+    timestamp: string;
+  }>;
+  transcript: Array<{
+    role: 'user' | 'agent';
+    text: string;
+    t: string;
+  }>;
+}

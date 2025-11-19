@@ -13,4 +13,5 @@ export { companyService } from './companyService';
 export { analyticsService } from './analyticsService';
 export { storageService } from './storageService';
 export { userService } from './userService';
+export { aiCallService } from './aiCallService';
 

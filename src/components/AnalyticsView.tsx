@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
-import { BarChart3, TrendingUp, Users, Briefcase, Award, Brain, Eye, AlertTriangle, ChevronDown } from 'lucide-react';
+import { BarChart3, TrendingUp, Users, Briefcase, Award, Brain, Eye, AlertTriangle, ChevronDown, Phone } from 'lucide-react';
+import { getFunctions, httpsCallable } from 'firebase/functions';
 import { useAuth } from '../contexts/AuthContext';
 import { analyticsService } from '../services/analyticsService';
 import { jobService } from '../services/jobService';
@@ -23,6 +24,8 @@ export default function AnalyticsView() {
   const [jobFilter, setJobFilter] = useState('all');
   const [showJobDropdown, setShowJobDropdown] = useState(false);
   const jobDropdownRef = useRef<HTMLDivElement>(null);
+  const [isCallingAI, setIsCallingAI] = useState(false);
+  const [phoneNumber, setPhoneNumber] = useState('+918511694954');
 
   useEffect(() => {
     if (currentUser) {
@@ -82,6 +85,31 @@ export default function AnalyticsView() {
       console.error('Error fetching analytics:', error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const startAICall = async () => {
+    if (!phoneNumber.trim()) {
+      alert('Please enter a phone number');
+      return;
+    }
+
+    setIsCallingAI(true);
+    try {
+      const functions = getFunctions(undefined, 'us-central1');
+      const call = httpsCallable(functions, 'startTestAICall');
+      const res = await call({ 
+        to: phoneNumber, 
+        candidateName: 'Test Candidate' 
+      });
+      console.log('Call started:', res.data);
+      alert(`AI call started successfully!\nCall ID: ${(res.data as any).aiCallId}`);
+      setPhoneNumber(''); // Clear input after successful call
+    } catch (err: any) {
+      console.error('Failed to start call:', err);
+      alert(err.message || 'Failed to start call');
+    } finally {
+      setIsCallingAI(false);
     }
   };
 
@@ -292,6 +320,51 @@ export default function AnalyticsView() {
                   </div>
                 );
               })}
+            </div>
+          </div>
+
+          {/* AI Call Testing Section */}
+          <div className="bg-gradient-to-br from-indigo-50 to-purple-50 rounded-xl border-2 border-indigo-200 p-6">
+            <div className="flex items-start space-x-4">
+              <div className="w-12 h-12 bg-indigo-600 rounded-lg flex items-center justify-center flex-shrink-0">
+                <Phone className="w-6 h-6 text-white" />
+              </div>
+              <div className="flex-1">
+                <h3 className="text-lg font-bold text-slate-900 mb-2">AI Phone Call Testing</h3>
+                <p className="text-sm text-slate-600 mb-4">
+                  Test the AI-powered phone interview system by initiating a test call to any phone number.
+                </p>
+                <div className="flex items-center space-x-3">
+                  <input
+                    type="tel"
+                    value={phoneNumber}
+                    onChange={(e) => setPhoneNumber(e.target.value)}
+                    placeholder="e.g., +1234567890"
+                    className="flex-1 px-4 py-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-slate-900"
+                    disabled={isCallingAI}
+                  />
+                  <button
+                    onClick={startAICall}
+                    disabled={isCallingAI || !phoneNumber.trim()}
+                    className="px-6 py-2.5 bg-indigo-600 text-white font-medium rounded-lg hover:bg-indigo-700 disabled:bg-slate-300 disabled:cursor-not-allowed transition-colors flex items-center space-x-2"
+                  >
+                    {isCallingAI ? (
+                      <>
+                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                        <span>Calling...</span>
+                      </>
+                    ) : (
+                      <>
+                        <Phone className="w-4 h-4" />
+                        <span>Start Test Call</span>
+                      </>
+                    )}
+                  </button>
+                </div>
+                <p className="text-xs text-slate-500 mt-2">
+                  Enter a phone number with country code (e.g., +1 for US). The AI will call and conduct a test interview.
+                </p>
+              </div>
             </div>
           </div>
 
