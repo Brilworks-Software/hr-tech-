@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { X, Calendar, Mail, Clock, Link as LinkIcon } from 'lucide-react';
+import { X, Calendar, Mail, Clock, Link as LinkIcon, Bot, Users } from 'lucide-react';
 import { interviewService } from '../services/interviewService';
 import { useToast } from '../contexts/ToastContext';
 
@@ -12,6 +12,8 @@ interface ScheduleInterviewModalProps {
   onSuccess: () => void;
 }
 
+type InterviewType = 'ai-video' | 'hr-video';
+
 export default function ScheduleInterviewModal({
   applicationId,
   candidateEmail,
@@ -21,6 +23,7 @@ export default function ScheduleInterviewModal({
   onSuccess,
 }: ScheduleInterviewModalProps) {
   const [loading, setLoading] = useState(false);
+  const [interviewType, setInterviewType] = useState<InterviewType>('ai-video');
   const [formData, setFormData] = useState({
     date: '',
     time: '',
@@ -63,12 +66,15 @@ export default function ScheduleInterviewModal({
         candidateEmail,
         candidateName,
         jobTitle,
+        interviewType, // Include interview type
       });
 
-      const interviewLink = `${window.location.origin}/interview/${interviewId}`;
+      const interviewLink = interviewType === 'ai-video'
+        ? `${window.location.origin}/ai-video-interview/${interviewId}`
+        : `${window.location.origin}/video-call/${interviewId}`;
       
       // Show simplified success message
-      showToast('Interview is scheduled', 'success');
+      showToast(`${interviewType === 'ai-video' ? 'AI' : 'HR'} interview is scheduled`, 'success');
       
       // Copy link to clipboard silently
       navigator.clipboard.writeText(interviewLink).catch(() => {
@@ -105,6 +111,80 @@ export default function ScheduleInterviewModal({
         </div>
 
         <form onSubmit={handleSubmit} className="p-6 space-y-5">
+          {/* Interview Type Selection */}
+          <div>
+            <label className="block text-sm font-semibold text-slate-900 mb-3">
+              Interview Type *
+            </label>
+            <div className="grid grid-cols-2 gap-4">
+              {/* AI Interview Option */}
+              <button
+                type="button"
+                onClick={() => setInterviewType('ai-video')}
+                className={`p-4 rounded-xl border-2 transition-all ${
+                  interviewType === 'ai-video'
+                    ? 'border-blue-600 bg-blue-50'
+                    : 'border-slate-200 hover:border-blue-300'
+                }`}
+              >
+                <div className="flex flex-col items-center space-y-2">
+                  <div className={`w-12 h-12 rounded-full flex items-center justify-center ${
+                    interviewType === 'ai-video'
+                      ? 'bg-blue-600'
+                      : 'bg-slate-200'
+                  }`}>
+                    <Bot className={`w-6 h-6 ${
+                      interviewType === 'ai-video' ? 'text-white' : 'text-slate-600'
+                    }`} />
+                  </div>
+                  <div className="text-center">
+                    <p className={`font-semibold ${
+                      interviewType === 'ai-video' ? 'text-blue-900' : 'text-slate-700'
+                    }`}>
+                      AI Interview
+                    </p>
+                    <p className="text-xs text-slate-500 mt-1">
+                      AI conducts the interview
+                    </p>
+                  </div>
+                </div>
+              </button>
+
+              {/* HR Interview Option */}
+              <button
+                type="button"
+                onClick={() => setInterviewType('hr-video')}
+                className={`p-4 rounded-xl border-2 transition-all ${
+                  interviewType === 'hr-video'
+                    ? 'border-blue-600 bg-blue-50'
+                    : 'border-slate-200 hover:border-blue-300'
+                }`}
+              >
+                <div className="flex flex-col items-center space-y-2">
+                  <div className={`w-12 h-12 rounded-full flex items-center justify-center ${
+                    interviewType === 'hr-video'
+                      ? 'bg-blue-600'
+                      : 'bg-slate-200'
+                  }`}>
+                    <Users className={`w-6 h-6 ${
+                      interviewType === 'hr-video' ? 'text-white' : 'text-slate-600'
+                    }`} />
+                  </div>
+                  <div className="text-center">
+                    <p className={`font-semibold ${
+                      interviewType === 'hr-video' ? 'text-blue-900' : 'text-slate-700'
+                    }`}>
+                      HR Interview
+                    </p>
+                    <p className="text-xs text-slate-500 mt-1">
+                      You conduct the interview
+                    </p>
+                  </div>
+                </div>
+              </button>
+            </div>
+          </div>
+
           <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
             <div className="flex items-start space-x-3">
               <Mail className="w-5 h-5 text-blue-600 mt-0.5" />
@@ -195,13 +275,24 @@ export default function ScheduleInterviewModal({
           </div>
 
           <div className="bg-slate-50 rounded-lg p-4">
-            <p className="text-sm font-semibold text-slate-900 mb-2">AI Features Included:</p>
-            <ul className="text-sm text-slate-600 space-y-1">
-              <li>• Real-time emotion detection and facial expression analysis</li>
-              <li>• Speech pattern and sentiment analysis</li>
-              <li>• Behavioral monitoring and integrity checks</li>
-              <li>• Automatic interview transcription</li>
-            </ul>
+            <p className="text-sm font-semibold text-slate-900 mb-2">
+              {interviewType === 'ai-video' ? 'AI Features Included:' : 'HR Interview Features:'}
+            </p>
+            {interviewType === 'ai-video' ? (
+              <ul className="text-sm text-slate-600 space-y-1">
+                <li>• AI-powered automated interview</li>
+                <li>• Real-time speech recognition and analysis</li>
+                <li>• Automatic interview transcription</li>
+                <li>• AI-generated evaluation and scoring</li>
+              </ul>
+            ) : (
+              <ul className="text-sm text-slate-600 space-y-1">
+                <li>• Live video call with HR interviewer</li>
+                <li>• Real-time conversation</li>
+                <li>• Screen sharing capabilities</li>
+                <li>• Recording and playback options</li>
+              </ul>
+            )}
           </div>
 
           <div className="flex items-center justify-end space-x-3 pt-4">

@@ -19,12 +19,14 @@ export interface CreateInterviewData {
   scheduledAt: Date;
   duration?: number;
   instructions?: string;
+  interviewType?: 'ai-video' | 'hr-video';
 }
 
 export interface ScheduleInterviewWithEmailData extends CreateInterviewData {
   candidateEmail: string;
   candidateName: string;
   jobTitle: string;
+  interviewType?: 'ai-video' | 'hr-video';
 }
 
 export interface InterviewSnapshotCallback {
@@ -45,7 +47,8 @@ export const interviewService = {
       transcript: null,
       questions: [],
       status: 'scheduled',
-      hrJoined: false, // HR hasn't joined yet
+      interviewType: data.interviewType || 'ai-video', // Use provided type or default to AI
+      hrJoined: false,
       duration: data.duration || 30,
       instructions: data.instructions || '',
       createdAt: Timestamp.now(),
@@ -68,11 +71,14 @@ export const interviewService = {
    * Schedule interview and send email notification
    */
   async scheduleInterviewWithEmail(data: ScheduleInterviewWithEmailData): Promise<string> {
+    const interviewType = data.interviewType || 'ai-video';
+    
     const interviewId = await this.createInterview({
       applicationId: data.applicationId,
       scheduledAt: data.scheduledAt,
       duration: data.duration,
       instructions: data.instructions,
+      interviewType, // Pass interview type
     });
 
     // Generate room code (Agora channel name)
@@ -83,7 +89,9 @@ export const interviewService = {
       agoraChannel: roomCode,
     });
 
-    const interviewLink = `${window.location.origin}/interview/${interviewId}`;
+    const interviewLink = interviewType === 'ai-video'
+      ? `${window.location.origin}/ai-video-interview/${interviewId}`
+      : `${window.location.origin}/video-call/${interviewId}`;
 
     // Try to send email via Firebase Functions (optional - interview is created regardless)
     try {
@@ -108,6 +116,7 @@ export const interviewService = {
         duration: data.duration || 30,
         instructions: data.instructions || '',
         roomCode: roomCode, // Include room code in email
+        interviewType, // Include interview type in email
       });
     } catch (emailError) {
       console.error('Error sending email:', emailError);

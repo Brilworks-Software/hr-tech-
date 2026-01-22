@@ -200,10 +200,15 @@ export default function CandidatesView() {
                   </div>
                 )}
                 {candidate.resumeUrl && (
-                  <div className="flex items-center text-sm text-blue-600 hover:text-blue-700 cursor-pointer">
+                  <a
+                    href={candidate.resumeUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center text-sm text-blue-600 hover:text-blue-700 cursor-pointer"
+                  >
                     <FileText className="w-4 h-4 mr-2" />
                     View Resume
-                  </div>
+                  </a>
                 )}
               </div>
 

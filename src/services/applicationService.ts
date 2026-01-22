@@ -237,5 +237,23 @@ export const applicationService = {
       updatedAt: Timestamp.now(),
     });
   },
+
+  /**
+   * Check if candidate has already applied to a job
+   */
+  async hasAlreadyApplied(candidateId: string, jobId: string): Promise<boolean> {
+    try {
+      const q = query(
+        collection(db, 'applications'),
+        where('candidateId', '==', candidateId),
+        where('jobId', '==', jobId)
+      );
+      const snapshot = await getDocs(q);
+      return !snapshot.empty;
+    } catch (error) {
+      console.error('Error checking existing application:', error);
+      return false;
+    }
+  },
 };
 

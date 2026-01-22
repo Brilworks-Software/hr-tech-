@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { Video, Calendar, Clock, TrendingUp, Brain, Plus, ExternalLink, X, FileText, User, Search, ChevronDown, Filter, Briefcase, Eye } from 'lucide-react';
+import { Video, Calendar, Clock, TrendingUp, Brain, Plus, ExternalLink, X, FileText, User, Search, ChevronDown, Filter, Briefcase, Eye, Bot, Users } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { Interview, Application } from '../lib/firebase';
 import { interviewService } from '../services/interviewService';
@@ -9,6 +9,7 @@ import { jobService } from '../services/jobService';
 import { useToast } from '../contexts/ToastContext';
 import { useNavigate } from 'react-router-dom';
 import ScheduleInterviewModal from './ScheduleInterviewModal';
+import { usePostHog } from 'posthog-js/react';
 
 interface InterviewWithCandidate extends Interview {
   candidateName?: string;
@@ -22,6 +23,7 @@ interface ApplicationWithCandidate extends Application {
 export default function InterviewsView() {
   const { currentUser } = useAuth();
   const navigate = useNavigate();
+  const posthog = usePostHog();
   const [interviews, setInterviews] = useState<InterviewWithCandidate[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
@@ -47,6 +49,8 @@ export default function InterviewsView() {
   const jobDropdownRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
+    posthog?.capture('interviews_view_opened', { interviewsCount: interviews.length });
+    
     if (!currentUser) return;
 
     // Only show loading if we don't have any data yet
@@ -206,14 +210,16 @@ export default function InterviewsView() {
   };
 
   const handleJoinInterview = (interviewId: string) => {
+    posthog?.capture('hr_interview_joined', { interviewId, from: 'interviews_view' });
     // Navigate to HR dashboard for video interview
     navigate(`/interview/${interviewId}/hr`);
   };
 
   const handleCopyLink = (interviewId: string) => {
-    const interviewLink = `${window.location.origin}/interview/${interviewId}`;
+    const interviewLink = `${window.location.origin}/ai-video-interview/${interviewId}`;
+    posthog?.capture('ai_interview_link_copied', { interviewId, link: interviewLink });
     navigator.clipboard.writeText(interviewLink);
-    showToast('Interview link copied to clipboard!', 'success');
+    showToast('AI Interview link copied to clipboard!', 'success');
   };
 
   // Filter interviews
@@ -271,6 +277,7 @@ export default function InterviewsView() {
         <button
           type="button"
           onClick={() => {
+            posthog?.capture('schedule_interview_clicked', { from: 'interviews_view_header' });
             fetchApplications();
             setShowApplicationSelector(true);
           }}
@@ -446,64 +453,126 @@ export default function InterviewsView() {
         </div>
       ) : (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {filteredInterviews.map((interview) => (
-            <div
-              key={interview.id}
-              className="bg-white rounded-xl border border-slate-200 p-6 hover:shadow-xl hover:border-blue-300 transition-all cursor-pointer"
-            >
-              <div className="flex items-start justify-between mb-4">
-                <div className="flex items-center space-x-3">
-                  <div className="w-12 h-12 bg-blue-500 rounded-full flex items-center justify-center">
-                    <Video className="w-6 h-6 text-white" />
+          {filteredInterviews.map((interview) => {
+            const isAIInterview = interview.interviewType === 'ai-video';
+            
+            return (
+              <div
+                key={interview.id}
+                className={`bg-white rounded-xl border-2 p-6 hover:shadow-xl transition-all cursor-pointer ${
+                  isAIInterview 
+                    ? 'border-blue-200 hover:border-blue-400' 
+                    : 'border-green-200 hover:border-green-400'
+                }`}
+              >
+                <div className="flex items-start justify-between mb-4">
+                  <div className="flex items-center space-x-3">
+                    <div className={`w-12 h-12 rounded-lg flex items-center justify-center ${
+                      isAIInterview 
+                        ? 'bg-gradient-to-br from-blue-500 to-blue-600' 
+                        : 'bg-gradient-to-br from-green-500 to-green-600'
+                    }`}>
+                      {isAIInterview ? (
+                        <Bot className="w-6 h-6 text-white" />
+                      ) : (
+                        <Users className="w-6 h-6 text-white" />
+                      )}
+                    </div>
+                    <div>
+                      <h3 className="font-bold text-slate-900">{interview.candidateName || 'Unknown Candidate'}</h3>
+                      <div className="flex items-center space-x-2 mt-1">
+                        <span className={`px-2 py-0.5 text-xs font-medium rounded ${
+                          isAIInterview 
+                            ? 'bg-blue-100 text-blue-700' 
+                            : 'bg-green-100 text-green-700'
+                        }`}>
+                          {isAIInterview ? '🤖 AI Interview' : '👥 HR Interview'}
+                        </span>
+                      </div>
+                    </div>
                   </div>
-                  <div>
-                    <h3 className="font-bold text-slate-900">{interview.candidateName || 'Unknown Candidate'}</h3>
-                    <p className="text-sm text-slate-600">{interview.jobTitle || 'Interview'}</p>
-                  </div>
+                  <span className={`px-3 py-1 rounded-full text-xs font-medium ${getStatusColor(interview.status)}`}>
+                    {interview.status.replace('_', ' ')}
+                  </span>
                 </div>
-                <span className={`px-3 py-1 rounded-full text-xs font-medium ${getStatusColor(interview.status)}`}>
-                  {interview.status.replace('_', ' ')}
-                </span>
-              </div>
 
-              <div className="space-y-3 mb-4">
-                <div className="flex items-center text-sm text-slate-600">
-                  <Calendar className="w-4 h-4 mr-2 text-slate-400" />
-                  Scheduled: {interview.scheduledAt.toLocaleString()}
+                <div className="bg-slate-50 rounded-lg p-3 mb-4">
+                  <p className="text-sm font-medium text-slate-900 mb-1">{interview.jobTitle || 'Interview'}</p>
+                  <div className="space-y-2">
+                    <div className="flex items-center text-xs text-slate-600">
+                      <Calendar className="w-3.5 h-3.5 mr-2 text-slate-400" />
+                      {interview.scheduledAt.toLocaleString()}
+                    </div>
+                    {interview.completedAt && (
+                      <div className="flex items-center text-xs text-slate-600">
+                        <Clock className="w-3.5 h-3.5 mr-2 text-slate-400" />
+                        Completed: {interview.completedAt.toLocaleString()}
+                      </div>
+                    )}
+                  </div>
                 </div>
-                {interview.completedAt && (
-                  <div className="flex items-center text-sm text-slate-600">
-                    <Clock className="w-4 h-4 mr-2 text-slate-400" />
-                    Completed: {interview.completedAt.toLocaleString()}
+
+                {isAIInterview ? (
+                  // AI Interview Actions
+                  <div className="flex items-center space-x-2 mt-4">
+                    <button
+                      onClick={() => {
+                        posthog?.capture('ai_interview_details_viewed', { interviewId: interview.id });
+                        navigate(`/interviews/${interview.id}`);
+                      }}
+                      className="flex-1 py-2.5 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 transition-all flex items-center justify-center space-x-2"
+                      title="View AI interview details"
+                    >
+                      <Eye className="w-4 h-4" />
+                      <span>View Details</span>
+                    </button>
+                    <button
+                      onClick={() => handleCopyLink(interview.id)}
+                      className="flex-1 py-2.5 text-sm font-medium text-blue-600 bg-blue-50 rounded-lg hover:bg-blue-100 transition-all flex items-center justify-center space-x-2"
+                      title="Copy AI interview link"
+                    >
+                      <ExternalLink className="w-4 h-4" />
+                      <span>Copy Link</span>
+                    </button>
+                  </div>
+                ) : (
+                  // HR Interview Actions
+                  <div className="flex items-center space-x-2 mt-4">
+                    <button
+                      onClick={() => {
+                        posthog?.capture('hr_interview_details_viewed', { interviewId: interview.id });
+                        navigate(`/interviews/${interview.id}`);
+                      }}
+                      className="flex-1 py-2.5 text-sm font-medium text-white bg-green-600 rounded-lg hover:bg-green-700 transition-all flex items-center justify-center space-x-2"
+                      title="View HR interview details"
+                    >
+                      <Eye className="w-4 h-4" />
+                      <span>View Details</span>
+                    </button>
+                    {interview.status === 'scheduled' || interview.status === 'in_progress' ? (
+                      <button
+                        onClick={() => handleJoinInterview(interview.id)}
+                        className="flex-1 py-2.5 text-sm font-medium text-green-600 bg-green-50 rounded-lg hover:bg-green-100 transition-all flex items-center justify-center space-x-2"
+                        title="Join live interview"
+                      >
+                        <Video className="w-4 h-4" />
+                        <span>Join Interview</span>
+                      </button>
+                    ) : (
+                      <button
+                        disabled
+                        className="flex-1 py-2.5 text-sm font-medium text-slate-400 bg-slate-100 rounded-lg cursor-not-allowed flex items-center justify-center space-x-2"
+                        title="Interview ended"
+                      >
+                        <Video className="w-4 h-4" />
+                        <span>Interview Ended</span>
+                      </button>
+                    )}
                   </div>
                 )}
               </div>
-
-              <div className="flex items-center space-x-2 mt-4">
-                <button
-                  onClick={() => handleJoinInterview(interview.id)}
-                  className="flex-1 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 transition-all flex items-center justify-center space-x-2"
-                >
-                  <Video className="w-4 h-4" />
-                  <span>Join Interview</span>
-                </button>
-                <button
-                  onClick={() => navigate(`/interviews/${interview.id}`)}
-                  className="p-2 text-slate-600 hover:bg-slate-100 rounded-lg transition-colors"
-                  title="View interview details"
-                >
-                  <Eye className="w-5 h-5" />
-                </button>
-                <button
-                  onClick={() => handleCopyLink(interview.id)}
-                  className="p-2 text-slate-600 hover:bg-slate-100 rounded-lg transition-colors"
-                  title="Copy interview link"
-                >
-                  <ExternalLink className="w-5 h-5" />
-                </button>
-              </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
 

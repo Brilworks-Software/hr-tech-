@@ -3,6 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { useToast } from '../contexts/ToastContext';
 import { interviewService } from '../services/interviewService';
+import { usePostHog } from 'posthog-js/react';
 import VideoCallUIKit from '../components/VideoCallUIKit';
 import {
   collection,
@@ -40,6 +41,7 @@ export default function HRDashboard() {
   const [roomCode, setRoomCode] = useState<string | null>(null);
   const [userName, setUserName] = useState('');
   const hasShownHighAlertRef = useRef<Set<string>>(new Set());
+  const posthog = usePostHog();
 
   // Generate a unique channel code for Agora
   const generateRoomCode = (): string => {
@@ -51,6 +53,8 @@ export default function HRDashboard() {
   };
 
   useEffect(() => {
+    posthog?.capture('hr_dashboard_viewed', { interviewId });
+    
     if (!interviewId) {
       showToast('Interview ID is required', 'error');
       navigate('/dashboard?view=interviews');
@@ -99,9 +103,11 @@ export default function HRDashboard() {
         }
 
         setRoomCode(code);
+        posthog?.capture('hr_interview_joined', { interviewId, roomCode: code });
       } catch (error) {
         console.error('Error setting up interview:', error);
         showToast('Failed to setup interview', 'error');
+        posthog?.capture('hr_interview_join_failed', { interviewId, error: error.message });
         navigate('/dashboard?view=interviews');
       } finally {
         setLoading(false);
@@ -109,7 +115,7 @@ export default function HRDashboard() {
     };
 
     setupInterview();
-  }, [interviewId, currentUser, navigate, showToast]);
+  }, [interviewId, currentUser, navigate, showToast, posthog]);
 
   // Listen for real-time cheating alerts
   useEffect(() => {
@@ -152,6 +158,11 @@ export default function HRDashboard() {
           if (!hasShownHighAlertRef.current.has(latest.id)) {
             hasShownHighAlertRef.current.add(latest.id);
             showToast(`⚠️ ${latest.message}`, 'error');
+            posthog?.capture('hr_high_severity_alert', { 
+              interviewId, 
+              alertType: latest.type, 
+              message: latest.message 
+            });
           }
         }
       },
@@ -186,6 +197,7 @@ export default function HRDashboard() {
     if (!interviewId) return;
 
     try {
+      posthog?.capture('hr_interview_ended', { interviewId, alertsCount: alerts.length });
       // End interview via service
       await interviewService.completeInterview(interviewId);
       showToast('Interview ended successfully', 'success');
@@ -193,6 +205,7 @@ export default function HRDashboard() {
     } catch (error) {
       console.error('Error ending interview:', error);
       showToast('Error ending interview', 'error');
+      posthog?.capture('hr_interview_end_failed', { interviewId, error: error.message });
     }
   };
 
@@ -229,7 +242,10 @@ export default function HRDashboard() {
         </div>
         <div className="flex items-center gap-3">
           <button
-            onClick={handleEndInterview}
+            onClick={() => {
+              posthog?.capture('hr_end_interview_clicked', { interviewId });
+              handleEndInterview();
+            }}
             className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg transition-colors font-medium"
           >
             End Interview

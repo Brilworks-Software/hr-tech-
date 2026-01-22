@@ -14,7 +14,7 @@ import {
 } from 'agora-rtc-react';
 import AgoraRTC, { ICameraVideoTrack, ILocalVideoTrack } from 'agora-rtc-react';
 import { useToast } from '../contexts/ToastContext';
-import { Monitor, MonitorOff, Captions, CaptionsOff } from 'lucide-react';
+import { Captions, CaptionsOff } from 'lucide-react';
 import { doc, setDoc, onSnapshot, Timestamp, arrayUnion } from 'firebase/firestore';
 import { db } from '../lib/firebase';
 
@@ -62,8 +62,7 @@ function VideoCallContent({
   const { videoTracks } = useRemoteVideoTracks(remoteUsers);
   const { audioTracks } = useRemoteAudioTracks(remoteUsers);
   const [hasJoined, setHasJoined] = useState(false);
-  const [screenTrack, setScreenTrack] = useState<ILocalVideoTrack | null>(null);
-  const [isScreenSharing, setIsScreenSharing] = useState(false);
+  // Screen sharing removed
   
   // Transcript state
   const [transcriptEnabled, setTranscriptEnabled] = useState(false);
@@ -285,6 +284,21 @@ function VideoCallContent({
     };
   }, [client]);
 
+  // Cleanup on component unmount
+  useEffect(() => {
+    return () => {
+      // Close all tracks when component unmounts
+      if (localMicrophoneTrack) {
+        localMicrophoneTrack.close();
+      }
+      if (localCameraTrack) {
+        localCameraTrack.close();
+      }
+      // Leave the channel
+      client.leave().catch(err => console.error('Error leaving channel on unmount:', err));
+    };
+  }, [localMicrophoneTrack, localCameraTrack, client]);
+
   const [isMuted, setIsMuted] = useState(false);
   const [isCameraOff, setIsCameraOff] = useState(false);
 
@@ -302,51 +316,7 @@ function VideoCallContent({
     }
   };
 
-  const handleScreenShare = async () => {
-    try {
-      if (isScreenSharing && screenTrack) {
-        // Stop screen sharing
-        await client.unpublish(screenTrack);
-        screenTrack.close();
-        setScreenTrack(null);
-        setIsScreenSharing(false);
-        
-        // Re-publish camera track
-        if (localCameraTrack) {
-          await client.publish(localCameraTrack);
-        }
-        
-        showToast('Screen sharing stopped', 'success');
-      } else {
-        // Start screen sharing
-        const screenVideoTrack = await AgoraRTC.createScreenVideoTrack({
-          encoderConfig: '1080p_1',
-        }, 'auto');
-
-        // Handle array return (video + audio) or single track
-        const videoTrack = Array.isArray(screenVideoTrack) ? screenVideoTrack[0] : screenVideoTrack;
-        
-        // Unpublish camera and publish screen
-        if (localCameraTrack) {
-          await client.unpublish(localCameraTrack);
-        }
-        
-        await client.publish(videoTrack);
-        setScreenTrack(videoTrack);
-        setIsScreenSharing(true);
-        
-        showToast('Screen sharing started', 'success');
-
-        // Listen for screen share stop (user clicks browser's "Stop Sharing" button)
-        videoTrack.on('track-ended', () => {
-          handleScreenShare(); // Stop sharing
-        });
-      }
-    } catch (error) {
-      console.error('Screen share error:', error);
-      showToast('Failed to share screen. Please try again.', 'error');
-    }
-  };
+  // Screen sharing removed
 
   const handleLeave = async () => {
     if (screenTrack) {
@@ -492,21 +462,7 @@ function VideoCallContent({
           </svg>
         </button>
 
-        <button
-          onClick={handleScreenShare}
-          className={`p-4 rounded-xl transition-all transform hover:scale-105 ${
-            isScreenSharing 
-              ? 'bg-blue-600 hover:bg-blue-700 shadow-lg shadow-blue-500/50' 
-              : 'bg-slate-700 hover:bg-slate-600'
-          }`}
-          title={isScreenSharing ? 'Stop sharing' : 'Share screen'}
-        >
-          {isScreenSharing ? (
-            <MonitorOff className="w-6 h-6 text-white" />
-          ) : (
-            <Monitor className="w-6 h-6 text-white" />
-          )}
-        </button>
+        {/* Screen share button removed */}
 
         <button
           onClick={() => setTranscriptEnabled(!transcriptEnabled)}

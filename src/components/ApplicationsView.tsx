@@ -8,6 +8,7 @@ import { candidateService } from '../services/candidateService';
 import { jobService } from '../services/jobService';
 import ScheduleInterviewModal from './ScheduleInterviewModal';
 import { useToast } from '../contexts/ToastContext';
+import { usePostHog } from 'posthog-js/react';
 
 interface ApplicationWithCandidate extends Application {
   candidate?: Candidate | null;
@@ -16,6 +17,7 @@ interface ApplicationWithCandidate extends Application {
 function ApplicationsView() {
   const { currentUser } = useAuth();
   const navigate = useNavigate();
+  const posthog = usePostHog();
   const [applications, setApplications] = useState<ApplicationWithCandidate[]>([]);
   const [jobs, setJobs] = useState<Job[]>([]);
   const [loading, setLoading] = useState(false); // Start as false to prevent blink on navigation
@@ -40,6 +42,8 @@ function ApplicationsView() {
   const { showToast } = useToast();
 
   useEffect(() => {
+    posthog?.capture('applications_view_opened', { applicationsCount: applications.length });
+    
     if (!currentUser) return;
 
     // Only show loading if we don't have any data yet
@@ -397,6 +401,12 @@ function ApplicationsView() {
                         
                         if (loadingSchedule) return;
                         
+                        posthog?.capture('schedule_interview_clicked', { 
+                          applicationId: app.id, 
+                          candidateName: app.candidate?.name,
+                          from: 'applications_view'
+                        });
+                        
                         try {
                           setLoadingSchedule(true);
                           setSelectedApplication(app);
@@ -445,6 +455,10 @@ function ApplicationsView() {
                     onClick={(e) => {
                       e.preventDefault();
                       e.stopPropagation();
+                      posthog?.capture('application_details_viewed', { 
+                        applicationId: app.id,
+                        candidateName: app.candidate?.name 
+                      });
                       navigate(`/applications/${app.id}`);
                     }}
                     className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-all text-sm font-medium cursor-pointer z-10 relative"

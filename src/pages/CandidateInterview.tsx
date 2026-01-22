@@ -183,6 +183,66 @@ export default function CandidateInterview() {
     };
   }, [cameraTrack, interviewId, startDetection]);
 
+  // Detect tab/window changes
+  useEffect(() => {
+    if (!interviewId) return;
+
+    const handleVisibilityChange = async () => {
+      if (document.hidden) {
+        console.log('⚠️ Tab switched away - logging cheating alert');
+        
+        // Log to Firestore
+        try {
+          const { addDoc, collection, Timestamp } = await import('firebase/firestore');
+          await addDoc(collection(db, 'interviews', interviewId, 'alerts'), {
+            type: 'tab_switched',
+            severity: 'high',
+            message: 'Candidate switched to another tab or window',
+            timestamp: Timestamp.now(),
+            details: 'User navigated away from the interview tab'
+          });
+        } catch (error) {
+          console.error('Error logging tab switch:', error);
+        }
+
+        showToast('Warning: Switching tabs is not allowed during the interview', 'error');
+      }
+    };
+
+    const handleBlur = async () => {
+      // Only log if the entire document loses focus (user switched apps/windows)
+      setTimeout(async () => {
+        if (!document.hasFocus()) {
+          console.log('⚠️ Window/App switched - logging cheating alert');
+          
+          // Log to Firestore
+          try {
+            const { addDoc, collection, Timestamp } = await import('firebase/firestore');
+            await addDoc(collection(db, 'interviews', interviewId, 'alerts'), {
+              type: 'window_blur',
+              severity: 'high',
+              message: 'Candidate switched to another application or window',
+              timestamp: Timestamp.now(),
+              details: 'User navigated to a different application'
+            });
+          } catch (error) {
+            console.error('Error logging window blur:', error);
+          }
+
+          showToast('Warning: Switching applications is not allowed during the interview', 'error');
+        }
+      }, 100);
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    window.addEventListener('blur', handleBlur);
+
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      window.removeEventListener('blur', handleBlur);
+    };
+  }, [interviewId, showToast]);
+
   const handleLeave = () => {
     stopDetection();
     

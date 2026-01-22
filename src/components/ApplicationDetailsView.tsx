@@ -2,7 +2,6 @@ import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
   ArrowLeft,
-  User,
   Mail,
   Phone,
   FileText,
@@ -13,13 +12,10 @@ import {
   Clock,
   Download,
   ExternalLink,
-  CheckCircle,
-  XCircle,
-  TrendingUp,
   Brain,
   Award,
   PhoneCall,
-  MessageSquare,
+  X,
 } from 'lucide-react';
 import { Application, Candidate, Job, AICall } from '../lib/firebase';
 import { applicationService } from '../services/applicationService';
@@ -39,6 +35,7 @@ export default function ApplicationDetailsView() {
   const [loading, setLoading] = useState(true);
   const [updatingStatus, setUpdatingStatus] = useState(false);
   const [activeTab, setActiveTab] = useState<'questions' | 'transcript'>('questions');
+  const [showJobModal, setShowJobModal] = useState(false);
   const { showToast } = useToast();
 
   useEffect(() => {
@@ -114,36 +111,6 @@ export default function ApplicationDetailsView() {
     }
   };
 
-  const getStatusIcon = (status: string) => {
-    switch (status) {
-      case 'hired':
-        return <CheckCircle className="w-5 h-5 text-green-600" />;
-      case 'rejected':
-        return <XCircle className="w-5 h-5 text-red-600" />;
-      case 'interview':
-        return <Calendar className="w-5 h-5 text-blue-600" />;
-      case 'screening':
-        return <TrendingUp className="w-5 h-5 text-yellow-600" />;
-      default:
-        return <Clock className="w-5 h-5 text-slate-600" />;
-    }
-  };
-
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'hired':
-        return 'bg-green-100 text-green-800 border-green-200';
-      case 'rejected':
-        return 'bg-red-100 text-red-800 border-red-200';
-      case 'interview':
-        return 'bg-blue-100 text-blue-800 border-blue-200';
-      case 'screening':
-        return 'bg-yellow-100 text-yellow-800 border-yellow-200';
-      default:
-        return 'bg-slate-100 text-slate-800 border-slate-200';
-    }
-  };
-
   if (loading) {
     return (
       <div className="flex items-center justify-center py-20">
@@ -181,56 +148,67 @@ export default function ApplicationDetailsView() {
         {/* Status Update Buttons */}
         <div className="flex flex-wrap items-center gap-2">
           <span className="text-sm font-medium text-slate-600 mr-2">Status:</span>
-          {['pending', 'screening', 'interview', 'rejected', 'hired'].map((status) => (
+          {[
+            { value: 'pending', color: 'bg-slate-600', hoverColor: 'hover:bg-slate-700' },
+            { value: 'screening', color: 'bg-yellow-600', hoverColor: 'hover:bg-yellow-700' },
+            { value: 'interview', color: 'bg-blue-600', hoverColor: 'hover:bg-blue-700' },
+            { value: 'rejected', color: 'bg-red-600', hoverColor: 'hover:bg-red-700' },
+            { value: 'hired', color: 'bg-green-600', hoverColor: 'hover:bg-green-700' }
+          ].map((status) => (
             <button
-              key={status}
-              onClick={() => handleStatusUpdate(status as Application['status'])}
-              disabled={updatingStatus || application.status === status}
+              key={status.value}
+              onClick={() => handleStatusUpdate(status.value as Application['status'])}
+              disabled={updatingStatus || application.status === status.value}
               className={`px-3 py-1.5 rounded-lg font-medium text-xs transition-all ${
-                application.status === status
-                  ? 'bg-blue-600 text-white cursor-default'
+                application.status === status.value
+                  ? `${status.color} text-white cursor-default`
                   : 'bg-slate-100 text-slate-700 hover:bg-slate-200 disabled:opacity-50 disabled:cursor-not-allowed'
               }`}
             >
-              {status.charAt(0).toUpperCase() + status.slice(1)}
+              {status.value.charAt(0).toUpperCase() + status.value.slice(1)}
             </button>
           ))}
         </div>
       </div>
 
-      {/* Candidate Information - Horizontal Layout */}
+      {/* Candidate Information Card */}
       <div className="bg-white rounded-xl border border-slate-200 p-6 shadow-sm">
-        <div className="flex flex-col md:flex-row gap-6">
-          <div className="flex items-start space-x-4">
-            <div className="w-16 h-16 bg-blue-500 rounded-full flex items-center justify-center text-white font-bold text-2xl flex-shrink-0">
+        {/* Candidate Section - Single Line */}
+        <div className="flex items-center gap-6 flex-wrap">
+          <div className="flex items-center space-x-4">
+            <div className="w-14 h-14 bg-blue-500 rounded-full flex items-center justify-center text-white font-bold text-xl flex-shrink-0">
               {candidate.name.charAt(0).toUpperCase()}
             </div>
             <div>
-              <h2 className="text-2xl font-bold text-slate-900">{candidate.name}</h2>
-              <p className="text-sm text-slate-500">Application #{application.id.substring(0, 8)}</p>
+              <h2 className="text-xl font-bold text-slate-900">{candidate.name}</h2>
+              <button
+                onClick={() => setShowJobModal(true)}
+                className="flex items-center space-x-1 text-xs text-blue-600 hover:text-blue-700 font-medium transition-colors"
+              >
+                <Briefcase className="w-3 h-3" />
+                <span>{job.title}</span>
+                <ExternalLink className="w-3 h-3" />
+              </button>
             </div>
           </div>
-          
-          <div className="flex-1 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-            <div>
-              <div className="flex items-center space-x-2 text-slate-600 mb-1">
-                <Mail className="w-4 h-4" />
-                <span className="text-xs font-medium">Email</span>
-              </div>
-              <a
-                href={`mailto:${candidate.email}`}
-                className="text-blue-600 hover:text-blue-700 text-sm font-medium break-all"
-              >
-                {candidate.email}
-              </a>
-            </div>
 
-            {candidate.phone && (
-              <div>
-                <div className="flex items-center space-x-2 text-slate-600 mb-1">
-                  <Phone className="w-4 h-4" />
-                  <span className="text-xs font-medium">Phone</span>
-                </div>
+          <div className="h-10 w-px bg-slate-200"></div>
+          
+          <div className="flex items-center space-x-2">
+            <Mail className="w-4 h-4 text-slate-500" />
+            <a
+              href={`mailto:${candidate.email}`}
+              className="text-blue-600 hover:text-blue-700 text-sm font-medium"
+            >
+              {candidate.email}
+            </a>
+          </div>
+
+          {candidate.phone && (
+            <>
+              <div className="h-10 w-px bg-slate-200"></div>
+              <div className="flex items-center space-x-2">
+                <Phone className="w-4 h-4 text-slate-500" />
                 <a
                   href={`tel:${candidate.phone}`}
                   className="text-blue-600 hover:text-blue-700 text-sm font-medium"
@@ -238,97 +216,42 @@ export default function ApplicationDetailsView() {
                   {candidate.phone}
                 </a>
               </div>
-            )}
+            </>
+          )}
 
-            <div>
-              <div className="flex items-center space-x-2 text-slate-600 mb-1">
-                <Calendar className="w-4 h-4" />
-                <span className="text-xs font-medium">Applied On</span>
-              </div>
-              <p className="text-slate-900 text-sm font-medium">
-                {application.appliedAt.toLocaleDateString('en-US', {
-                  month: 'short',
-                  day: 'numeric',
-                  year: 'numeric',
-                })}
-              </p>
-            </div>
+          <div className="h-10 w-px bg-slate-200"></div>
 
-            {candidate.resumeUrl && (
-              <div className="flex items-center">
-                <a
-                  href={candidate.resumeUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="flex items-center space-x-2 px-4 py-2 bg-blue-50 hover:bg-blue-100 text-blue-700 rounded-lg transition-colors text-sm font-medium"
-                >
-                  <Download className="w-4 h-4" />
-                  <span>Resume</span>
-                  <ExternalLink className="w-3 h-3" />
-                </a>
-              </div>
-            )}
+          <div className="flex items-center space-x-2">
+            <Calendar className="w-4 h-4 text-slate-500" />
+            <span className="text-sm text-slate-700 font-medium">
+              {application.appliedAt.toLocaleDateString('en-US', {
+                month: 'short',
+                day: 'numeric',
+                year: 'numeric',
+              })}
+            </span>
           </div>
+
+          {candidate.resumeUrl && (
+            <>
+              <div className="h-10 w-px bg-slate-200"></div>
+              <a
+                href={candidate.resumeUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                download
+                className="flex items-center space-x-2 px-3 py-1.5 bg-blue-50 hover:bg-blue-100 text-blue-700 rounded-lg transition-colors text-sm font-medium"
+              >
+                <Download className="w-4 h-4" />
+                <span>View Resume</span>
+                <ExternalLink className="w-3 h-3" />
+              </a>
+            </>
+          )}
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Job Information */}
-        <div className="bg-white rounded-xl border border-slate-200 p-6 shadow-sm">
-          <div className="flex items-center space-x-3 mb-4">
-            <Briefcase className="w-6 h-6 text-blue-600" />
-            <h2 className="text-xl font-bold text-slate-900">Job Information</h2>
-          </div>
-
-          <div className="space-y-4">
-            <div>
-              <h3 className="text-lg font-semibold text-slate-900 mb-2">{job.title}</h3>
-              <div className="flex flex-wrap items-center gap-3 text-sm text-slate-600">
-                {job.requirements?.location && (
-                  <div className="flex items-center space-x-1">
-                    <MapPin className="w-4 h-4" />
-                    <span>{job.requirements.location}</span>
-                  </div>
-                )}
-                {job.requirements?.salary && (
-                  <div className="flex items-center space-x-1">
-                    <DollarSign className="w-4 h-4" />
-                    <span>{job.requirements.salary}</span>
-                  </div>
-                )}
-                {job.requirements?.experience && (
-                  <div className="flex items-center space-x-1">
-                    <Clock className="w-4 h-4" />
-                    <span>{job.requirements.experience}</span>
-                  </div>
-                )}
-              </div>
-            </div>
-
-            {job.description && (
-              <div>
-                <h4 className="font-semibold text-slate-900 mb-2 text-sm">Description</h4>
-                <p className="text-slate-600 text-sm whitespace-pre-wrap line-clamp-3">{job.description}</p>
-              </div>
-            )}
-
-            {job.requirements?.skills && job.requirements.skills.length > 0 && (
-              <div>
-                <h4 className="font-semibold text-slate-900 mb-2 text-sm">Required Skills</h4>
-                <div className="flex flex-wrap gap-2">
-                  {job.requirements.skills.map((skill, index) => (
-                    <span
-                      key={index}
-                      className="px-2 py-1 bg-blue-50 text-blue-700 rounded-full text-xs font-medium"
-                    >
-                      {skill}
-                    </span>
-                  ))}
-                </div>
-              </div>
-            )}
-          </div>
-        </div>
+      <div className="grid grid-cols-1 gap-6">
 
         {/* AI Match Score */}
         {application.matchScore !== undefined && (
@@ -540,6 +463,93 @@ export default function ApplicationDetailsView() {
           </div>
           <div className="bg-slate-50 rounded-lg p-4 max-h-96 overflow-y-auto">
             <p className="text-slate-700 whitespace-pre-wrap text-sm">{candidate.resumeText}</p>
+          </div>
+        </div>
+      )}
+
+      {/* Job Details Modal */}
+      {showJobModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl max-w-3xl w-full max-h-[90vh] overflow-hidden shadow-2xl">
+            <div className="flex items-center justify-between p-6 border-b border-slate-200">
+              <div className="flex items-center space-x-3">
+                <Briefcase className="w-6 h-6 text-blue-600" />
+                <h2 className="text-2xl font-bold text-slate-900">Job Details</h2>
+              </div>
+              <button
+                onClick={() => setShowJobModal(false)}
+                className="p-2 hover:bg-slate-100 rounded-lg transition-colors"
+              >
+                <X className="w-5 h-5 text-slate-500" />
+              </button>
+            </div>
+
+            <div className="p-6 overflow-y-auto max-h-[calc(90vh-88px)]">
+              {/* Job Title */}
+              <div className="mb-6">
+                <h3 className="text-2xl font-bold text-slate-900 mb-4">{job.title}</h3>
+                
+                {/* Job Requirements Grid */}
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
+                  {job.requirements?.location && (
+                    <div className="bg-slate-50 rounded-lg p-4">
+                      <div className="flex items-center space-x-2 text-slate-600 mb-1">
+                        <MapPin className="w-4 h-4" />
+                        <span className="text-xs font-medium">Location</span>
+                      </div>
+                      <p className="text-slate-900 text-sm font-medium">{job.requirements.location}</p>
+                    </div>
+                  )}
+
+                  {job.requirements?.salary && (
+                    <div className="bg-slate-50 rounded-lg p-4">
+                      <div className="flex items-center space-x-2 text-slate-600 mb-1">
+                        <DollarSign className="w-4 h-4" />
+                        <span className="text-xs font-medium">Salary</span>
+                      </div>
+                      <p className="text-slate-900 text-sm font-medium">{job.requirements.salary}</p>
+                    </div>
+                  )}
+
+                  {job.requirements?.experience && (
+                    <div className="bg-slate-50 rounded-lg p-4">
+                      <div className="flex items-center space-x-2 text-slate-600 mb-1">
+                        <Clock className="w-4 h-4" />
+                        <span className="text-xs font-medium">Experience</span>
+                      </div>
+                      <p className="text-slate-900 text-sm font-medium">{job.requirements.experience}</p>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Required Skills */}
+              {job.requirements?.skills && job.requirements.skills.length > 0 && (
+                <div className="mb-6">
+                  <h4 className="font-semibold text-slate-900 mb-3">Required Skills</h4>
+                  <div className="flex flex-wrap gap-2">
+                    {job.requirements.skills.map((skill, index) => (
+                      <span
+                        key={index}
+                        className="px-3 py-1.5 bg-blue-50 text-blue-700 rounded-full text-sm font-medium"
+                      >
+                        {skill}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Job Description */}
+              {job.description && (
+                <div>
+                  <h4 className="font-semibold text-slate-900 mb-3">Job Description</h4>
+                  <div className="prose prose-sm max-w-none">
+                    <p className="text-slate-700 whitespace-pre-wrap leading-relaxed">{job.description}</p>
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
         </div>
       )}

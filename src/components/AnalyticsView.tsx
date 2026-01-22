@@ -25,7 +25,7 @@ export default function AnalyticsView() {
   const [showJobDropdown, setShowJobDropdown] = useState(false);
   const jobDropdownRef = useRef<HTMLDivElement>(null);
   const [isCallingAI, setIsCallingAI] = useState(false);
-  const [phoneNumber, setPhoneNumber] = useState('+918511694954');
+  const [phoneNumber, setPhoneNumber] = useState('');
 
   useEffect(() => {
     if (currentUser) {

@@ -99,8 +99,29 @@ export interface Interview {
   transcript: string | null;
   questions: Array<Record<string, unknown>>;
   status: 'scheduled' | 'in_progress' | 'completed' | 'cancelled';
-  hrJoined: boolean; // Track if HR has joined the interview
+  hrJoined?: boolean; // Track if HR has joined the interview (optional for AI interviews)
   agoraChannel?: string | null; // Agora channel name for video call
+  
+  // AI Video Interview Fields
+  interviewType?: 'hr' | 'ai-video'; // Type of interview
+  aiVideoInterviewId?: string; // Reference to aiVideoInterviews collection
+  
+  // AI Evaluation
+  aiEvaluation?: {
+    overallScore: number;
+    technicalScore: number;
+    communicationScore: number;
+    cultureFitScore: number;
+    problemSolvingScore: number;
+    motivationScore: number;
+    recommendation: 'strong-hire' | 'hire' | 'maybe' | 'no-hire';
+    strengths: string[];
+    concerns: string[];
+    keyInsights: string[];
+    detailedFeedback: string;
+    evaluatedAt: Date;
+  };
+  
   createdAt: Date;
 }
 

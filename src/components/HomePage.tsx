@@ -3,6 +3,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { userService } from '../services/userService';
 import logoImage from '../assets/logo.png';
+import { usePostHog } from 'posthog-js/react';
 import { 
   Users, 
   Video, 
@@ -18,8 +19,11 @@ import {
 export default function HomePage() {
   const { currentUser, loading } = useAuth();
   const navigate = useNavigate();
+  const posthog = usePostHog();
 
   useEffect(() => {
+    posthog?.capture('homepage_viewed', { page: 'home' });
+    
     const checkAuth = async () => {
       if (loading) return;
       
@@ -36,7 +40,7 @@ export default function HomePage() {
 
     checkAuth();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [currentUser, loading]);
+  }, [currentUser, loading, posthog]);
   return (
     <div className="min-h-screen bg-slate-900">
       {/* Navigation */}
@@ -52,12 +56,14 @@ export default function HomePage() {
         <div className="flex items-center space-x-2 md:space-x-4">
           <Link
             to="/login"
+            onClick={() => posthog?.capture('header_signin_clicked', { location: 'header' })}
             className="px-3 md:px-4 py-2 text-sm md:text-base text-blue-100 hover:text-white transition-colors"
           >
             Sign In
           </Link>
           <Link
             to="/signup"
+            onClick={() => posthog?.capture('header_getstarted_clicked', { location: 'header' })}
             className="px-4 md:px-6 py-2 text-sm md:text-base bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-colors"
           >
             Get Started
@@ -87,6 +93,7 @@ export default function HomePage() {
             <div className="flex flex-col sm:flex-row gap-3 md:gap-4 mb-8 md:mb-12">
               <Link
                 to="/signup"
+                onClick={() => posthog?.capture('hero_freetrial_clicked', { location: 'hero' })}
                 className="inline-flex items-center justify-center space-x-2 px-6 md:px-8 py-3 md:py-4 bg-blue-600 text-white rounded-lg font-semibold text-base md:text-lg hover:bg-blue-700 transition-all"
               >
                 <span>Start Free Trial</span>
@@ -94,6 +101,7 @@ export default function HomePage() {
               </Link>
               <Link
                 to="/login"
+                onClick={() => posthog?.capture('hero_signin_clicked', { location: 'hero' })}
                 className="inline-flex items-center justify-center px-6 md:px-8 py-3 md:py-4 bg-white/10 backdrop-blur-sm text-white rounded-lg font-semibold text-base md:text-lg hover:bg-white/20 transition-all border border-white/20"
               >
                 Sign In
@@ -243,6 +251,7 @@ export default function HomePage() {
           </p>
           <Link
             to="/signup"
+            onClick={() => posthog?.capture('cta_getstarted_clicked', { location: 'cta_section' })}
             className="inline-flex items-center space-x-2 px-6 md:px-8 py-3 md:py-4 bg-white text-blue-600 rounded-lg font-semibold text-base md:text-lg hover:shadow-2xl transition-all"
           >
             <span>Get Started for Free</span>

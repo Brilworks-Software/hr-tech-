@@ -9,9 +9,10 @@ import ApplicationsView from './components/ApplicationsView';
 import CandidatesView from './components/CandidatesView';
 import InterviewsView from './components/InterviewsView';
 import AnalyticsView from './components/AnalyticsView';
-import InterviewDetailsView from './components/InterviewDetailsView';
+import InterviewDetailsRouter from './components/InterviewDetailsRouter';
 import JobApplicationForm from './components/JobApplicationForm';
 import CandidateInterview from './pages/CandidateInterview';
+import AIVideoInterviewRoom from './components/AIVideoInterviewRoom';
 import HRDashboard from './pages/HRDashboard';
 import ApplicationDetailsView from './components/ApplicationDetailsView';
 import CandidateProfileView from './components/CandidateProfileView';
@@ -102,6 +103,8 @@ export default function App() {
           />
           <Route path="/apply/:jobId" element={<JobApplicationForm />} />
           <Route path="/interview/:interviewId" element={<CandidateInterview />} />
+          <Route path="/ai-video-interview/:interviewId" element={<AIVideoInterviewRoom />} />
+            <Route path="/video-call/:interviewId" element={<CandidateInterview />} />
           <Route
             path="/interview/:interviewId/hr"
             element={
@@ -115,7 +118,7 @@ export default function App() {
             element={
               <ProtectedRoute>
                 <DetailLayoutWrapper currentView="interviews">
-                  <InterviewDetailsView />
+                  <InterviewDetailsRouter />
                 </DetailLayoutWrapper>
               </ProtectedRoute>
             }

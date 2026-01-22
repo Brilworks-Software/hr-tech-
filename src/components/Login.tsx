@@ -3,6 +3,7 @@ import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { Mail, Lock, AlertCircle, Eye, EyeOff } from 'lucide-react';
 import logoImage from '../assets/logo.png';
+import { usePostHog } from 'posthog-js/react';
 
 export default function Login() {
   const [email, setEmail] = useState('');
@@ -12,8 +13,11 @@ export default function Login() {
   const [loading, setLoading] = useState(false);
   const { login, currentUser } = useAuth();
   const navigate = useNavigate();
+  const posthog = usePostHog();
 
   useEffect(() => {
+    posthog?.capture('login_page_viewed', { page: 'login' });
+    
     const checkAndRedirect = async () => {
       if (currentUser) {
         // Check if user has completed profile setup
@@ -29,7 +33,7 @@ export default function Login() {
 
     checkAndRedirect();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [currentUser]);
+  }, [currentUser, posthog]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -42,7 +46,9 @@ export default function Login() {
 
     try {
       setLoading(true);
+      posthog?.capture('login_attempted', { email });
       await login(email, password);
+      posthog?.capture('login_successful', { email });
       navigate('/dashboard');
     } catch (err) {
       const error = err as { code?: string; message?: string };
@@ -66,6 +72,7 @@ export default function Login() {
       }
       
       setError(errorMessage);
+      posthog?.capture('login_failed', { email, error: error.code || 'unknown' });
     } finally {
       setLoading(false);
     }
@@ -155,7 +162,11 @@ export default function Login() {
           <div className="mt-5 md:mt-6 text-center">
             <p className="text-xs md:text-sm text-slate-600">
               Don't have an account?{' '}
-              <Link to="/signup" className="text-blue-600 font-medium hover:text-blue-700">
+              <Link 
+                to="/signup" 
+                onClick={() => posthog?.capture('signup_link_clicked', { from: 'login_page' })}
+                className="text-blue-600 font-medium hover:text-blue-700"
+              >
                 Sign up
               </Link>
             </p>

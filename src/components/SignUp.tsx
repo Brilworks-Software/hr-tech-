@@ -3,6 +3,7 @@ import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { Mail, Lock, AlertCircle, CheckCircle, Eye, EyeOff } from 'lucide-react';
 import logoImage from '../assets/logo.png';
+import { usePostHog } from 'posthog-js/react';
 
 export default function SignUp() {
   const [email, setEmail] = useState('');
@@ -14,8 +15,11 @@ export default function SignUp() {
   const [loading, setLoading] = useState(false);
   const { signup, currentUser } = useAuth();
   const navigate = useNavigate();
+  const posthog = usePostHog();
 
   useEffect(() => {
+    posthog?.capture('signup_page_viewed', { page: 'signup' });
+    
     const checkAndNavigate = async () => {
       if (currentUser) {
         // If user is already logged in and visits signup page, check profile status
@@ -30,7 +34,7 @@ export default function SignUp() {
     };
     checkAndNavigate();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [currentUser]);
+  }, [currentUser, posthog]);
 
   const validatePassword = (password: string) => {
     if (password.length < 6) {
@@ -61,7 +65,9 @@ export default function SignUp() {
 
     try {
       setLoading(true);
+      posthog?.capture('signup_attempted', { email });
       await signup(email, password);
+      posthog?.capture('signup_successful', { email });
       // Redirect to profile setup after successful signup
       navigate('/setup-profile');
     } catch (err) {
@@ -85,6 +91,7 @@ export default function SignUp() {
       }
       
       setError(errorMessage);
+      posthog?.capture('signup_failed', { email, error: error.code || 'unknown' });
     } finally {
       setLoading(false);
     }
@@ -231,7 +238,11 @@ export default function SignUp() {
           <div className="mt-5 md:mt-6 text-center">
             <p className="text-xs md:text-sm text-slate-600">
               Already have an account?{' '}
-              <Link to="/login" className="text-blue-600 font-medium hover:text-blue-700">
+              <Link 
+                to="/login" 
+                onClick={() => posthog?.capture('signin_link_clicked', { from: 'signup_page' })}
+                className="text-blue-600 font-medium hover:text-blue-700"
+              >
                 Sign in
               </Link>
             </p>

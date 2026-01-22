@@ -21,11 +21,13 @@ import { applicationService } from '../services/applicationService';
 import { storageService } from '../services/storageService';
 import { aiAnalysisService } from '../services/aiAnalysisService';
 import { Job } from '../lib/firebase';
+import { useToast } from '../contexts/ToastContext';
 import * as pdfjsLib from 'pdfjs-dist';
 
 export default function JobApplicationForm() {
   const { jobId } = useParams<{ jobId: string }>();
   const navigate = useNavigate();
+  const { showToast } = useToast();
   const [job, setJob] = useState<Job | null>(null);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
@@ -253,6 +255,16 @@ export default function JobApplicationForm() {
 
       // Get candidate for AI analysis
       const candidate = await candidateService.getCandidateById(candidateId);
+      
+      // Check if candidate has already applied to this job
+      const hasApplied = await applicationService.hasAlreadyApplied(candidateId, jobId);
+      if (hasApplied) {
+        const message = 'You have already applied to this position. We will review your application and contact you if there is a match.';
+        setError(message);
+        showToast(message, 'info');
+        setSubmitting(false);
+        return;
+      }
       
       // Perform AI analysis if resume text is available
       const applicationData: {

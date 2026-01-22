@@ -7,6 +7,7 @@ import { useAuth } from '../contexts/AuthContext';
 import CreateJobModal from './CreateJobModal';
 import { collection, getDocs } from 'firebase/firestore';
 import { db } from '../lib/firebase';
+import { usePostHog } from 'posthog-js/react';
 
 export default function JobsView() {
   const navigate = useNavigate();
@@ -20,8 +21,11 @@ export default function JobsView() {
   const [applicationCounts, setApplicationCounts] = useState<{ [jobId: string]: number }>({});
   const statusDropdownRef = useRef<HTMLDivElement>(null);
   const { currentUser } = useAuth();
+  const posthog = usePostHog();
 
   useEffect(() => {
+    posthog?.capture('jobs_view_opened', { jobsCount: jobs.length });
+    
     if (!currentUser) return;
 
     // Only show loading if we don't have any data yet
@@ -40,7 +44,7 @@ export default function JobsView() {
 
     return () => unsubscribe();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [currentUser]); // jobs.length intentionally excluded to prevent unnecessary re-subscriptions
+  }, [currentUser, posthog]); // jobs.length intentionally excluded to prevent unnecessary re-subscriptions
 
   const fetchApplicationCounts = async (jobIds: string[]) => {
     try {
@@ -118,6 +122,7 @@ export default function JobsView() {
 
   const handleShareJob = async (jobId: string) => {
     const shareLink = `${window.location.origin}/apply/${jobId}`;
+    posthog?.capture('job_shared', { jobId, shareLink });
     try {
       await navigator.clipboard.writeText(shareLink);
       setCopiedJobId(jobId);
@@ -183,7 +188,10 @@ export default function JobsView() {
           </div>
         </div>
         <button
-          onClick={() => setShowCreateModal(true)}
+          onClick={() => {
+            posthog?.capture('create_job_clicked', { from: 'jobs_view_header' });
+            setShowCreateModal(true);
+          }}
           className="flex items-center space-x-2 px-5 py-2.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-all"
         >
           <Plus className="w-5 h-5" />
@@ -204,7 +212,10 @@ export default function JobsView() {
           </p>
           {!searchTerm && (
             <button
-              onClick={() => setShowCreateModal(true)}
+              onClick={() => {
+                posthog?.capture('create_job_clicked', { from: 'empty_state' });
+                setShowCreateModal(true);
+              }}
               className="inline-flex items-center space-x-2 px-5 py-2.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-all"
             >
               <Plus className="w-5 h-5" />
@@ -273,6 +284,7 @@ export default function JobsView() {
                   <button
                     onClick={(e) => {
                       e.stopPropagation();
+                      posthog?.capture('job_viewed', { jobId: job.id, jobTitle: job.title });
                       navigate(`/jobs/${job.id}`);
                     }}
                     className="flex items-center space-x-1 px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50 rounded-lg transition-colors"
