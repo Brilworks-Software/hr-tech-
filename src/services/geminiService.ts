@@ -6,7 +6,7 @@ if (!apiKey) {
   console.error('VITE_GEMINI_API_KEY is not set in .env file');
 } else {
   // Log first 10 characters to verify key is loaded (for debugging)
-  console.log('Gemini API key loaded:', apiKey.substring(0, 10) + '...');
+
 }
 
 const genAI = apiKey ? new GoogleGenerativeAI(apiKey) : null;
@@ -24,7 +24,7 @@ export async function analyzeWithGemini(cvText: string, jobDescription: string):
     throw new Error('Gemini API key is not configured. Please add VITE_GEMINI_API_KEY to your .env file.');
   }
   
-  const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash' });
+  const model = genAI.getGenerativeModel({ model: 'gemini-3.6-flash' });
 
   const prompt = `You are an expert HR recruiter and CV analyzer. Analyze the following CV against the job description and provide a detailed matching assessment.
 
@@ -91,7 +91,7 @@ export async function generateJobDescription(jobDetails: JobDetails | string): P
     throw new Error('Gemini API key is not configured. Please add VITE_GEMINI_API_KEY to your .env file.');
   }
   
-  const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash' });
+  const model = genAI.getGenerativeModel({ model: 'gemini-3.6-flash' });
 
   // Support both old (string) and new (object) formats for backward compatibility
   let jobTitle: string;
@@ -165,7 +165,7 @@ export async function extractJobFromPDF(pdfText: string): Promise<{
     throw new Error('Gemini API key is not configured. Please add VITE_GEMINI_API_KEY to your .env file.');
   }
   
-  const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash' });
+  const model = genAI.getGenerativeModel({ model: 'gemini-3.6-flash' });
 
   const prompt = `You are an expert at extracting and structuring job information from PDF documents. Analyze the following PDF content and extract job posting information:
 
@@ -234,7 +234,7 @@ export async function evaluateInterviewPerformance(
     throw new Error('Gemini API key is not configured. Please add VITE_GEMINI_API_KEY to your .env file.');
   }
   
-  const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash' });
+  const model = genAI.getGenerativeModel({ model: 'gemini-3.6-flash' });
 
   const prompt = `You are an expert HR interviewer and talent evaluator. Analyze the following interview transcript against the job description and provide a comprehensive hiring recommendation.
 

@@ -117,7 +117,7 @@ export default function JobsView() {
   };
 
   const handleShareJob = async (jobId: string) => {
-    const shareLink = `${window.location.origin}/apply/${jobId}`;
+    const shareLink = `${window.location.origin}/#/apply/${jobId}`;
     try {
       await navigator.clipboard.writeText(shareLink);
       setCopiedJobId(jobId);

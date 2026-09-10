@@ -65,7 +65,7 @@ export default function ScheduleInterviewModal({
         jobTitle,
       });
 
-      const interviewLink = `${window.location.origin}/interview/${interviewId}`;
+      const interviewLink = `${window.location.origin}/#/interview/${interviewId}`;
       
       // Show simplified success message
       showToast('Interview is scheduled', 'success');

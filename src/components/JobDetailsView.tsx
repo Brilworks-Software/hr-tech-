@@ -115,7 +115,7 @@ export default function JobDetailsView() {
 
   const handleShareJob = async () => {
     if (!jobId) return;
-    const shareLink = `${window.location.origin}/apply/${jobId}`;
+    const shareLink = `${window.location.origin}/#/apply/${jobId}`;
     try {
       await navigator.clipboard.writeText(shareLink);
       setCopied(true);
@@ -184,7 +184,7 @@ export default function JobDetailsView() {
     );
   }
 
-  const shareLink = `${window.location.origin}/apply/${job.id}`;
+  const shareLink = `${window.location.origin}/#/apply/${job.id}`;
   const stats = {
     totalApplications: applications.length,
     pending: applications.filter((app) => app.status === 'pending').length,

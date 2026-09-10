@@ -83,7 +83,7 @@ export const interviewService = {
       agoraChannel: roomCode,
     });
 
-    const interviewLink = `${window.location.origin}/interview/${interviewId}`;
+    const interviewLink = `${window.location.origin}/#/interview/${interviewId}`;
 
     // Try to send email via Firebase Functions (optional - interview is created regardless)
     try {

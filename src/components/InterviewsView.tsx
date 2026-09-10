@@ -211,7 +211,7 @@ export default function InterviewsView() {
   };
 
   const handleCopyLink = (interviewId: string) => {
-    const interviewLink = `${window.location.origin}/interview/${interviewId}`;
+    const interviewLink = `${window.location.origin}/#/interview/${interviewId}`;
     navigator.clipboard.writeText(interviewLink);
     showToast('Interview link copied to clipboard!', 'success');
   };
